@@ -1,0 +1,2 @@
+# Nginx-Lua-minification-library
+A compression and minification library to minify static or dynamic assets like HTML PHP outputs CSS style sheets JS Javascript all text/html or plain text mime types that nginx can output that the browser will read so they are small compressed and have white space removed as well as helping reduce bandwidth consumption since the files served from nginx are now smaller.
