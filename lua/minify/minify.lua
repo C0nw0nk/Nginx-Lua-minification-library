@@ -76,6 +76,7 @@ local content_type_list = {
 			--Example :
 			--{"replace me", " with me! ",},
 			{"\n", " ",}, --replace new lines with a space
+			{"<!--(.*)-->", "",}, --remove nulled out html
 		}
 	},
 	
