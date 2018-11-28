@@ -15,6 +15,10 @@ https://github.com/C0nw0nk/Nginx-Lua-minification-library/pulls
 
 # Usage :
 
+Edit settings inside `minify.lua` to add your own mime types or improve my regex. (Please share your soloutions and additions)
+
+https://github.com/C0nw0nk/Nginx-Lua-minification-library/blob/master/lua/minify/minify.lua#L69
+
 Add this to your Nginx configuration folder.
 
 `nginx/conf/lua/minify`
