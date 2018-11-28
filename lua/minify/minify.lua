@@ -75,8 +75,12 @@ local content_type_list = {
 			]]
 			--Example :
 			--{"replace me", " with me! ",},
-			{"\n", " ",}, --replace new lines with a space
 			{"<!--(.*)-->", "",}, --remove nulled out html
+			{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --remove nulled out css style sheet code inline within the html page
+			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --TODO: Regex for inline <style type="text/css"></style> --remove nulled out css style sheet code inline within the html page
+			{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --remove nulled out javascript code inline within the html page
+			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --TODO: Regex for inline <script type="text/javascript"></script> --remove nulled out javascript code inline within the html page
+			{"\n", " ",}, --replace new lines with a space (execution order of regex matters keep this last)
 		}
 	},
 	
