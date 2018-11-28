@@ -78,8 +78,10 @@ local content_type_list = {
 			{"<!--(.*)-->", "",}, --remove nulled out html
 			{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --remove nulled out css style sheet code inline within the html page
 			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --TODO: Regex for inline <style type="text/css"></style> --remove nulled out css style sheet code inline within the html page
+			--TODO: regex to remove inline style sheet html that would be nulled out with double slashes //blah blah
 			{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --remove nulled out javascript code inline within the html page
 			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --TODO: Regex for inline <script type="text/javascript"></script> --remove nulled out javascript code inline within the html page
+			--TODO: regex to remove inline script html that would be nulled out with double slashes //blah blah
 			{"\n", " ",}, --replace new lines with a space (execution order of regex matters keep this last)
 		}
 	},
