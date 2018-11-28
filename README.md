@@ -62,3 +62,33 @@ body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
 ```
+
+
+# Building your own regex rules to apply inside this script :
+
+Using my code examples below copy and paste them to test and edit and build your own regex on the Lua demo site here :
+
+https://www.lua.org/cgi-bin/demo
+
+#### Examples :
+
+##### Basic :
+```
+local string = "<style>lol1/* ok lol */lol2</style>"
+local regex = "<style>(.*)%/%*(.*)%*%/(.*)</style>"
+local replace_with = "<style>%1%3</style>"
+local output = string.gsub(string, regex, replace_with)
+print(output)
+```
+
+##### Advanced :
+```
+local add_to_string = [[added me!]]
+local string = [[<style>lol1/* ok lol */lol2</style>]] .. add_to_string .. [[
+hello world!
+]]
+local regex = "<style>(.*)%/%*(.*)%*%/(.*)</style>"
+local replace_with = "<style>%1%3</style>"
+local output = string.gsub(string, regex, replace_with)
+print(output)
+```
