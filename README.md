@@ -100,6 +100,17 @@ print(output)
 # About :
 
 I was inspired to create this because of Cloudflare feature "Auto Minify" https://www.cloudflare.com/
+```
+Auto Minify
+
+Reduce the file size of source code on your website.
+
+What does Auto Minify do?
+
+Auto Minify removes unnecessary characters from your source code (like whitespace, comments, etc.) without changing its functionality.
+
+Minification can compress source file size which reduces the amount of data that needs to be transferred to visitors and thus improves page load times.
+```
 
 I love that feature so much ontop of having it enabled on all my Cloudflare proxied sites I decided to make it into a feature on my own servers so the traffic I send to cloudflare is also reduced in bandwidth too! (Every little helps right!)
 
