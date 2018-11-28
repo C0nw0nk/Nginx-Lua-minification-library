@@ -96,3 +96,17 @@ local replace_with = "<style>%1%3</style>"
 local output = string.gsub(string, regex, replace_with)
 print(output)
 ```
+
+# About :
+
+I was inspired to create this because of Cloudflare feature "Auto Minify" https://www.cloudflare.com/
+
+I love that feature so much ontop of having it enabled on all my Cloudflare proxied sites I decided to make it into a feature on my own servers so the traffic I send to cloudflare is also reduced in bandwidth too! (Every little helps right!)
+
+Thank you to @Cloudflare for the inspiration and your community for all the love, A big thanks to the @openresty community you guys rock Lua rocks you are all so awesome!
+
+Lets build a better internet together! Where Speed, Privacy, Security and Compression matter!
+
+Here are links to my favorite communities :)
+http://openresty.org/en/
+https://community.cloudflare.com/
