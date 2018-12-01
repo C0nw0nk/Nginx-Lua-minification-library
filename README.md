@@ -1,5 +1,5 @@
 # Nginx-Lua-minification-library
-A compression and minification library to minify static or dynamic assets like HTML PHP outputs CSS style sheets JS Javascript all text/html or plain text mime types that nginx can output that the browser will read so they are small compressed and have white space removed as well as helping reduce bandwidth consumption since the files served from nginx are now smaller.
+A compression and minification library to minify static or dynamic assets like HTML PHP outputs CSS style sheets JS Javascript all text/html or plain text mime types that nginx can output that the browser will read so they are small compressed and have white space removed as well as helping reduce bandwidth consumption since the files served from nginx webserver are now smaller.
 
 # Information :
 
@@ -97,6 +97,23 @@ local output = string.gsub(string, regex, replace_with)
 print(output)
 ```
 
+# Requirements :
+NONE! :D You only need Nginx + Lua to use my scripts.
+
+###### Where can you download Nginx + Lua ?
+
+Openresty provide Nginx + Lua builds for Windows Linux etc here.
+
+https://openresty.org/en/download.html
+
+Nginx4windows has Windows specific builds with Lua here.
+
+http://nginx-win.ecsds.eu/
+
+Or you can download the source code for Nginx here and compile Nginx yourself with Lua.
+
+https://nginx.org/en/download.html
+
 # About :
 
 I was inspired to create this because of Cloudflare feature "Auto Minify" https://www.cloudflare.com/
@@ -119,5 +136,7 @@ Thank you to @Cloudflare for the inspiration and your community for all the love
 Lets build a better internet together! Where Speed, Privacy, Security and Compression matter!
 
 Here are links to my favorite communities :)
+
 http://openresty.org/en/
+
 https://community.cloudflare.com/
