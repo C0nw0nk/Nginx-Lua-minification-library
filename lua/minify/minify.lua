@@ -75,17 +75,18 @@ local content_type_list = {
 			]]
 			--Example :
 			--{"replace me", " with me! ",},
-			{"<!--(.*)-->", "",}, --remove nulled out html
+			{"<!--[^>]-->", "",}, --remove nulled out html !! I DO NOT RECOMMEND REMOVING HTML COMMENTS, THIS COULD BREAK YOUR ENTIRE WEBSITE FOR OLD BROWSERS, BE ADVISED
 			{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --remove nulled out css style sheet code inline within the html page
 			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --TODO: Regex for inline <style type="text/css"></style> --remove nulled out css style sheet code inline within the html page
 			--TODO: regex to remove inline style sheet html that would be nulled out with double slashes //blah blah
 			{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --remove nulled out javascript code inline within the html page
 			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --TODO: Regex for inline <script type="text/javascript"></script> --remove nulled out javascript code inline within the html page
 			--TODO: regex to remove inline script html that would be nulled out with double slashes //blah blah
-			{"\n", " ",}, --replace new lines with a space (execution order of regex matters keep this last)
+			{"\n", "",}, --replace new lines with a space (execution order of regex matters keep this last)
+			{">%s+<", "><",}, --remove blank characters from html
 		}
 	},
-	
+
 	{
 		"text/css",
 		{
@@ -272,7 +273,7 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 
 local content_type = ngx.header["content-type"]
 for key, value in ipairs(content_type_list) do
-	if value[1] == content_type then
+	if string.match(value[1], string.gsub(value[1], content_type, '')) then
 		for k, v in ipairs(value[2]) do
 			local output = ngx.arg[1]
 			local output_minified = output
