@@ -1,6 +1,8 @@
 # Nginx-Lua-minification-library
 A compression and minification library to minify static or dynamic assets like HTML PHP outputs CSS style sheets JS Javascript all text/html or plain text mime types that nginx can output that the browser will read so they are small compressed and have white space removed as well as helping reduce bandwidth consumption since the files served from nginx webserver are now smaller.
 
+> Please note, this script will only remove comments, white spaces and breaklines from your code. So, this mean it will not "rebuild" your files in order to minify the code. If you want something similar, I recommend using [Pagespeed](https://developers.google.com/speed/pagespeed/module/ "Pagespeed") from Google
+
 # Information :
 
 I built this script to compress and keep the specified mime types outputs small and minify the bandwidth that my servers have to use when serving these files to users.
@@ -12,8 +14,6 @@ https://github.com/C0nw0nk/Nginx-Lua-minification-library/issues
 If you fork or make any changes to improve this or fix problems please do make a pull request for the community who also use this. 
 
 https://github.com/C0nw0nk/Nginx-Lua-minification-library/pulls
-
-Please note, this script will only remove comments, white spaces and breaklines from your code. So, this mean it will not "rebuild" your files in order to minify the code. If you want something similar, I recommend using https://developers.google.com/speed/pagespeed/module from Google
 
 # Usage :
 
