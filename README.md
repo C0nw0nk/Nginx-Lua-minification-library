@@ -13,6 +13,8 @@ If you fork or make any changes to improve this or fix problems please do make a
 
 https://github.com/C0nw0nk/Nginx-Lua-minification-library/pulls
 
+Please note, this script will only remove comments, white spaces and breaklines from your code. So, this mean it will not "rebuild" your files in order to minify the code. If you want something similar, I recommend using https://developers.google.com/speed/pagespeed/module from Google
+
 # Usage :
 
 Edit settings inside `minify.lua` to add your own mime types or improve my regex. (Please share your soloutions and additions)
