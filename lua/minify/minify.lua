@@ -75,18 +75,15 @@ local content_type_list = {
 			]]
 			--Example :
 			--{"replace me", " with me! ",},
-			{"<!--[^>]-->", "",}, --remove nulled out html !! I DO NOT RECOMMEND REMOVING HTML COMMENTS, THIS COULD BREAK YOUR ENTIRE WEBSITE FOR OLD BROWSERS, BE ADVISED
-			{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --remove nulled out css style sheet code inline within the html page
-			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",}, --TODO: Regex for inline <style type="text/css"></style> --remove nulled out css style sheet code inline within the html page
-			--TODO: regex to remove inline style sheet html that would be nulled out with double slashes //blah blah
-			{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --remove nulled out javascript code inline within the html page
-			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",}, --TODO: Regex for inline <script type="text/javascript"></script> --remove nulled out javascript code inline within the html page
-			--TODO: regex to remove inline script html that would be nulled out with double slashes //blah blah
-			{"\n", "",}, --replace new lines with a space (execution order of regex matters keep this last)
-			{">%s+<", "><",}, --remove blank characters from html
+			{"<!--[^>]-->", "",}, --remove nulled out html example !! I DO NOT RECOMMEND REMOVING COMMENTS, THIS COULD BREAK YOUR ENTIRE WEBSITE FOR OLD BROWSERS, BE AWARE
+			{"(//[^.*]*.\n)", "",}, -- Example: this //will remove //comments (result: this remove)
+			{"(/%*[^*]*%*/)", "",}, -- Example: this /*will*/ remove /*comments*/ (result: this remove)
+			{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",},
+			{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",},
+			{"%s%s+", "",}, --remove blank characters from html
+			{"[ \t]+$", "",}, --remove break lines (execution order of regex matters keep this last)
 		}
 	},
-
 	{
 		"text/css",
 		{
@@ -94,170 +91,220 @@ local content_type_list = {
 			Usage :
 			Regex, Replacement
 			]]
-			{"\n", " ",},
+			{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
 		}
 	},
-
 	--javascript has allot of different mime types i don't know why!?
 	{
-		"application/javascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "application/javascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+			{"(//[^.*]*.\n)", "",},
+			{"(/%*.*[^*].*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"application/ecmascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "application/ecmascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"application/x-ecmascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "application/x-ecmascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"application/x-javascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "application/x-javascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/ecmascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/ecmascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.0",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.0",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.1",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.1",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.2",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.2",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.3",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.3",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.4",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.4",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/javascript1.5",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/javascript1.5",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/jscript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/jscript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/livescript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/livescript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/x-ecmascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/x-ecmascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 	{
-		"text/x-javascript",
-		{
-			--[[
-			Usage :
-			Regex, Replacement
-			]]
-			{"\n", " ",},
-		}
+	  "text/x-javascript",
+	  {
+	    --[[
+	    Usage :
+	    Regex, Replacement
+	    ]]
+	    		{"(//[^.*]*.\n)", "",},
+			{"(/%*[^*]*%*/)", "",},
+			{"%s%s+", "",},
+			{"[ \t]+$", "",},
+	  }
 	},
 }
 
@@ -273,7 +320,10 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 
 local content_type = ngx.header["content-type"]
 for key, value in ipairs(content_type_list) do
-	if string.match(value[1], string.gsub(value[1], content_type, '')) then
+	if string.find(content_type, ";") ~= nil then -- Check if content-type has charset config
+		content_type = string.match(content_type, "(.*)%;(.*)") --Split ;charset from header
+	end
+  if string.match(value[1], content_type) then
 		for k, v in ipairs(value[2]) do
 			local output = ngx.arg[1]
 			local output_minified = output
