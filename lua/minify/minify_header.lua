@@ -28,7 +28,7 @@ Once installed into your nginx/conf/ folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 
-header_filter_by_lua_file conf/lua/minify/minify_header.lua
+header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 
 Example nginx.conf :
@@ -36,7 +36,7 @@ Example nginx.conf :
 This will run for all websites on the nginx server
 http {
 #nginx config settings etc
-header_filter_by_lua_file conf/lua/minify/minify_header.lua
+header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
@@ -44,7 +44,7 @@ body_filter_by_lua_file conf/lua/minify/minify.lua;
 This will make it run for this website only
 server {
 #nginx config settings etc
-header_filter_by_lua_file conf/lua/minify/minify_header.lua
+header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
@@ -52,11 +52,19 @@ body_filter_by_lua_file conf/lua/minify/minify.lua;
 This will run in this location block only
 location / {
 #nginx config settings etc
-header_filter_by_lua_file conf/lua/minify/minify_header.lua
+header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
 
 ]]
+local ngx_header = ngx.header
+ngx_header.content_length = nil
 
-ngx.header.content_length = nil
+--incase server does not send content length header bug make content length to provide to user
+--if not ngx_header["content-length"] and ngx_header["content-range"] then
+	--local start_byte, end_byte = string_match(ngx_header["content-range"], "bytes (%d+)-(%d+)/%d+")
+	--if start_byte and end_byte then
+		--ngx_header["content-length"] = (end_byte - start_byte) + 1
+	--end
+--end
