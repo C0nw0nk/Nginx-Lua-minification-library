@@ -28,8 +28,7 @@ Once installed into your nginx/conf/ folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 lua_shared_dict minify 10m; #Minified pages cache
-header_filter_by_lua_file conf/lua/minify/minify_header.lua;
-body_filter_by_lua_file conf/lua/minify/minify.lua;
+access_by_lua_file conf/lua/minify/minify.lua;
 
 Example nginx.conf :
 
@@ -37,8 +36,7 @@ This will run for all websites on the nginx server
 http {
 #nginx config settings etc
 lua_shared_dict minify 10m; #Minified pages cache
-header_filter_by_lua_file conf/lua/minify/minify_header.lua;
-body_filter_by_lua_file conf/lua/minify/minify.lua;
+access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
 
@@ -46,8 +44,7 @@ This will make it run for this website only
 server {
 #nginx config settings etc
 lua_shared_dict minify 10m; #Minified pages cache
-header_filter_by_lua_file conf/lua/minify/minify_header.lua;
-body_filter_by_lua_file conf/lua/minify/minify.lua;
+access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
 
@@ -55,8 +52,7 @@ This will run in this location block only
 location / {
 #nginx config settings etc
 lua_shared_dict minify 10m; #Minified pages cache
-header_filter_by_lua_file conf/lua/minify/minify_header.lua;
-body_filter_by_lua_file conf/lua/minify/minify.lua;
+access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
 
@@ -88,6 +84,10 @@ local content_type_list = {
 			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",},
 			--{"%s%s+", "",}, --remove blank characters from html
 			--{"[ \t]+$", "",}, --remove break lines (execution order of regex matters keep this last)
+			{"<!%-%-[^%[]-->", "",},
+			{"%s%s+", " ",},
+			{"\n\n*", " ",},
+			{"\n*$", ""},
 		}
 	},
 	{
@@ -136,28 +136,32 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 ]]
 
 local ngx_req_get_headers = ngx.req.get_headers
+local ngx_req_set_header = ngx.req.set_header
 local ngx_header = ngx.header
-local string_find = string.find
+--local string_find = string.find
 local string_match = string.match
 local string_gsub = string.gsub
 local ngx_arg = ngx.arg
 local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
+local request_uri = ngx.var.request_uri or "/"
+local ngx_exit = ngx.exit
+local ngx_say = ngx.say
+local ngx_HTTP_OK = ngx.HTTP_OK
 
-local content_type = ngx_header["content-type"]
+local content_type = ngx_header["content-type"] or ""
 for i=1,#content_type_list do
 	--if string_find(content_type, ";") ~= nil then -- Check if content-type has charset config
 		--content_type = string_match(content_type, "(.*)%;(.*)") --Split ;charset from header
 	--end
 	if string_match(content_type_list[i][1], content_type) then
-	
+
 		local cached = content_type_list[i][2] or ""
 		if cached ~= "" then
 			local ttl = content_type_list[i][3] or ""
 			local req_headers = ngx_req_get_headers() --get all request headers
 			local cookies = req_headers["cookie"] or "" --for dynamic pages
-			local request_uri = ngx.var.request_uri or ""
 			local key = request_uri .. cookies
 			local count = cached:get(key) or nil
 
@@ -165,42 +169,58 @@ for i=1,#content_type_list do
 				if content_type_list[i][4] == 1 then
 					ngx_log(ngx_LOG_TYPE, " Not yet or expired cached putting into cache " )
 				end
+				
+				
+				local res = ngx.location.capture(request_uri)
+				--ngx_log(ngx_LOG_TYPE, " response status is " .. res.status )
+				if res then
+					if res.body and res.status == 200 then
+						local output_minified = res.body
 
-				for x=1,#content_type_list[i][5] do
-					local output = ngx_arg[1]
-					local output_minified = output
+						for x=1,#content_type_list[i][5] do
+							output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
+						end --end foreach regex check
 
-					output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
-
-					if output_minified then
-						--Modify the output to replace it with our minified output
-						ngx_arg[1] = output_minified
+						ngx_header.content_length = #output_minified
+						ngx_header.content_type = content_type_list[i][1]
+						cached:set(key, output_minified, ttl)
+						ngx_say(output_minified)
+						ngx_exit(ngx_HTTP_OK)
 					end
+				end
 
-				end --end foreach regex check
-
-				cached:set(key, ngx_arg[1], ttl)
 				break --break out loop since matched content-type header
 
 			else
 				if content_type_list[i][4] == 1 then
 					ngx_log(ngx_LOG_TYPE, " Served from cache " )
 				end
-				ngx_arg[1] = cached:get(key)
+
+				local output_minified = cached:get(key)
+				ngx_header.content_length = #output_minified
+				ngx_header.content_type = content_type_list[i][1]
+				ngx_say(output_minified)
+				ngx_exit(ngx_HTTP_OK)
 			end
 		else --shared mem zone not specified
-			for x=1,#content_type_list[i][5] do
-				local output = ngx_arg[1]
-				local output_minified = output
+			local res = ngx.location.capture(request_uri)
+			if res then
+				if res.body and res.status == 200 then
+					local output_minified = res.body
 
-				output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
+					for x=1,#content_type_list[i][5] do
+						output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
+					end --end foreach regex check
 
-				if output_minified then
-					--Modify the output to replace it with our minified output
-					ngx_arg[1] = output_minified
+					ngx_header.content_length = #output_minified
+					ngx_header.content_type = content_type_list[i][1]
+					ngx_say(output_minified)
+					ngx_exit(ngx_HTTP_OK)
 				end
-			end --end foreach regex check
+			end
+
 			break --break out loop since matched content-type header
+
 		end
 
 	end --end content_type if check
