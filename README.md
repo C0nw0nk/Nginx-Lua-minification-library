@@ -30,6 +30,7 @@ Once installed into your `nginx/conf/` folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 ```
+lua_shared_dict minify 10m; #Minified pages cache
 header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 ```
@@ -41,6 +42,7 @@ This will run for all websites on the nginx server
 ```
 http {
 #nginx config settings etc
+lua_shared_dict minify 10m; #Minified pages cache
 header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
@@ -52,6 +54,7 @@ This will make it run for this website only
 ```
 server {
 #nginx config settings etc
+lua_shared_dict minify 10m; #Minified pages cache
 header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
@@ -63,6 +66,7 @@ This will run in this location block only
 ```
 location / {
 #nginx config settings etc
+lua_shared_dict minify 10m; #Minified pages cache
 header_filter_by_lua_file conf/lua/minify/minify_header.lua;
 body_filter_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
