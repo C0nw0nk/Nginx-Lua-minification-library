@@ -139,7 +139,6 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 ]]
 
 local ngx_req_get_headers = ngx.req.get_headers
---local ngx_req_set_header = ngx.req.set_header
 local ngx_header = ngx.header
 --local string_find = string.find
 local string_match = string.match
@@ -151,7 +150,6 @@ local ngx_LOG_TYPE = ngx.STDERR
 local request_uri = ngx.var.request_uri or "/"
 local ngx_exit = ngx.exit
 local ngx_say = ngx.say
-local ngx_HTTP_OK = ngx.HTTP_OK
 
 local function minification(content_type_list)
 	local content_type = ngx_header["content-type"] or ""
@@ -166,7 +164,18 @@ local function minification(content_type_list)
 				local ttl = content_type_list[i][3] or ""
 				local req_headers = ngx_req_get_headers() --get all request headers
 				local cookies = req_headers["cookie"] or "" --for dynamic pages
-				local key = request_uri .. cookies
+				local cookie_string = ""
+				if type(cookies) ~= "table" then
+					--ngx_log(ngx_LOG_TYPE, " cookies are string ")
+					cookie_string = cookies
+				else
+					--ngx_log(ngx_LOG_TYPE, " cookies are table ")
+					for t=1, #cookies do
+						cookie_string = cookie_string .. cookies[t]
+					end
+				end
+				--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
+				local key = request_uri .. cookie_string
 				local count = cached:get(key) or nil
 
 				if count == nil then
