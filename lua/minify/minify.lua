@@ -70,6 +70,14 @@ local minify_table = {
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,}, --response status codes to minify
+		{"GET",}, --request method to cache
+		{ --bypass on cookie
+			{"logged_in","1",},
+			--{"name1","value1",},
+		}, --bypass on cookie
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		{
 			--[[
 			Usage :
@@ -89,7 +97,7 @@ local minify_table = {
 			{"%s%s+", " ",},
 			{"\n\n*", " ",},
 			{"\n*$", ""},
-		}
+		},
 	},
 	{
 		"text/css",
@@ -97,6 +105,14 @@ local minify_table = {
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,}, --response status codes to minify
+		{"GET",}, --request method to cache
+		{ --bypass on cookie
+			{"logged_in","1",},
+			--{"name1","value1",},
+		}, --bypass on cookie
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
 		{
 			--[[
 			Usage :
@@ -106,7 +122,7 @@ local minify_table = {
 			--{"(/%*[^*]*%*/)", "",},
 			--{"%s%s+", "",},
 			--{"[ \t]+$", "",},
-		}
+		},
 	},
 	{
 		"text/javascript",
@@ -114,6 +130,14 @@ local minify_table = {
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,}, --response status codes to minify
+		{"GET",}, --request method to cache
+		{ --bypass on cookie
+			{"logged_in","1",},
+			--{"name1","value1",},
+		}, --bypass on cookie
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
 		{
 			--[[
 			Usage :
@@ -123,7 +147,7 @@ local minify_table = {
 			--{"(/%*[^*]*%*/)", "",},
 			--{"%s%s+", "",},
 			--{"[ \t]+$", "",},
-		}
+		},
 	},
 	
 }
@@ -140,6 +164,7 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 
 local ngx_req_get_headers = ngx.req.get_headers
 local ngx_header = ngx.header
+local ngx_var = ngx.var
 --local string_find = string.find
 local string_match = string.match
 local string_gsub = string.gsub
@@ -147,7 +172,7 @@ local ngx_arg = ngx.arg
 local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
-local request_uri = ngx.var.request_uri or "/"
+local request_uri = ngx_var.request_uri or "/"
 local ngx_exit = ngx.exit
 local ngx_say = ngx.say
 
@@ -158,6 +183,51 @@ local function minification(content_type_list)
 			--content_type = string_match(content_type, "(.*)%;(.*)") --Split ;charset from header
 		--end
 		if string_match(content_type_list[i][1], content_type) then
+			if content_type_list[i][9] == 1 then
+				ngx_header["X-Cache-Status"] = "MISS"
+			end
+			if content_type_list[i][6] ~= "" then
+				local request_method_match = 0
+				for a=1, #content_type_list[i][6] do
+					if ngx_var.request_method == content_type_list[i][6][a] then
+						request_method_match = 1
+						break
+					end
+				end
+				if request_method_match == 0 then
+					--ngx_log(ngx_LOG_TYPE, "request method not matched")
+					return
+				end
+			end
+			if content_type_list[i][7] ~= "" then
+				local cookie_match = 0
+				for a=1, #content_type_list[i][7] do
+					local cookie_name = content_type_list[i][7][a][1]
+					local cookie_value = content_type_list[i][7][a][2]
+					local cookie_exist = ngx_var["cookie_" .. cookie_name] or ""
+					if cookie_exist then
+						if string_match(cookie_exist, cookie_value ) then
+							cookie_match = 1
+						end
+					end
+				end
+				if cookie_match == 1 then
+					--ngx_log(ngx_LOG_TYPE, "cookie matched so bypass")
+					return
+				end
+			end
+			if content_type_list[i][8] ~= "" then
+				local request_uri_match = 0
+				for a=1, #content_type_list[i][8] do
+					if string_match(request_uri, content_type_list[i][8][a] ) then
+						request_uri_match = 1
+					end
+				end
+				if request_uri_match == 1 then
+					--ngx_log(ngx_LOG_TYPE, "request uri matched so bypass")
+					return
+				end
+			end
 
 			local cached = content_type_list[i][2] or ""
 			if cached ~= "" then
@@ -179,15 +249,15 @@ local function minification(content_type_list)
 				local count = cached:get(key) or nil
 
 				if count == nil then
-					if #content_type_list[i][5] > 0 and #content_type_list[i][6] > 0 then
+					if #content_type_list[i][5] > 0 and #content_type_list[i][11] > 0 then
 						local res = ngx.location.capture(request_uri)
 						if res then
 							for z=1, #content_type_list[i][5] do
 								if res.body and res.status == content_type_list[i][5][z] then
 									local output_minified = res.body
 
-									for x=1,#content_type_list[i][6] do
-										output_minified = string_gsub(output_minified, content_type_list[i][6][x][1], content_type_list[i][6][x][2])
+									for x=1,#content_type_list[i][11] do
+										output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
 									end --end foreach regex check
 
 									if content_type_list[i][4] == 1 then
@@ -195,6 +265,12 @@ local function minification(content_type_list)
 									end
 									ngx_header.content_length = #output_minified
 									ngx_header.content_type = content_type_list[i][1]
+									if content_type_list[i][9] == 1 then
+										ngx_header["X-Cache-Status"] = "UPDATING"
+									end
+									if content_type_list[i][10] == 1 then
+										ngx_header["Set-Cookie"] = nil
+									end
 									cached:set(key, output_minified, ttl)
 									cached:set("s"..key, res.status, ttl)
 									ngx_say(output_minified)
@@ -215,19 +291,25 @@ local function minification(content_type_list)
 					local res_status = cached:get("s"..key)
 					ngx_header.content_length = #output_minified
 					ngx_header.content_type = content_type_list[i][1]
+					if content_type_list[i][9] == 1 then
+						ngx_header["X-Cache-Status"] = "HIT"
+					end
+					if content_type_list[i][10] == 1 then
+						ngx_header["Set-Cookie"] = nil
+					end
 					ngx_say(output_minified)
 					ngx_exit(res_status)
 				end
 			else --shared mem zone not specified
-				if #content_type_list[i][5] > 0 and #content_type_list[i][6] > 0 then
+				if #content_type_list[i][5] > 0 and #content_type_list[i][11] > 0 then
 					local res = ngx.location.capture(request_uri)
 					if res then
 						for z=1, #content_type_list[i][5] do
 							if res.body and res.status == content_type_list[i][5][z] then
 								local output_minified = res.body
 
-								for x=1,#content_type_list[i][6] do
-									output_minified = string_gsub(output_minified, content_type_list[i][6][x][1], content_type_list[i][6][x][2])
+								for x=1,#content_type_list[i][11] do
+									output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
 								end --end foreach regex check
 
 								ngx_header.content_length = #output_minified
