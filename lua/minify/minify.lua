@@ -63,12 +63,13 @@ Settings used to modify and compress each invidual mime type output you specify 
 
 I decided to make it as easy to use and customisable as possible to help the community that will use this.
 ]]
-local content_type_list = {
+local minify_table = {
 	{
 		"text/html",
 		ngx.shared.minify, --shared cache zone to use or empty string to not use ""
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
+		{200,}, --response status codes to minify
 		{
 			--[[
 			Usage :
@@ -95,6 +96,7 @@ local content_type_list = {
 		ngx.shared.minify, --shared cache zone to use or empty string to not use ""
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
+		{200,}, --response status codes to minify
 		{
 			--[[
 			Usage :
@@ -111,6 +113,7 @@ local content_type_list = {
 		ngx.shared.minify, --shared cache zone to use or empty string to not use ""
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
+		{200,}, --response status codes to minify
 		{
 			--[[
 			Usage :
@@ -136,7 +139,7 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 ]]
 
 local ngx_req_get_headers = ngx.req.get_headers
-local ngx_req_set_header = ngx.req.set_header
+--local ngx_req_set_header = ngx.req.set_header
 local ngx_header = ngx.header
 --local string_find = string.find
 local string_match = string.match
@@ -150,78 +153,88 @@ local ngx_exit = ngx.exit
 local ngx_say = ngx.say
 local ngx_HTTP_OK = ngx.HTTP_OK
 
-local content_type = ngx_header["content-type"] or ""
-for i=1,#content_type_list do
-	--if string_find(content_type, ";") ~= nil then -- Check if content-type has charset config
-		--content_type = string_match(content_type, "(.*)%;(.*)") --Split ;charset from header
-	--end
-	if string_match(content_type_list[i][1], content_type) then
+local function minification(content_type_list)
+	local content_type = ngx_header["content-type"] or ""
+	for i=1,#content_type_list do
+		--if string_find(content_type, ";") ~= nil then -- Check if content-type has charset config
+			--content_type = string_match(content_type, "(.*)%;(.*)") --Split ;charset from header
+		--end
+		if string_match(content_type_list[i][1], content_type) then
 
-		local cached = content_type_list[i][2] or ""
-		if cached ~= "" then
-			local ttl = content_type_list[i][3] or ""
-			local req_headers = ngx_req_get_headers() --get all request headers
-			local cookies = req_headers["cookie"] or "" --for dynamic pages
-			local key = request_uri .. cookies
-			local count = cached:get(key) or nil
+			local cached = content_type_list[i][2] or ""
+			if cached ~= "" then
+				local ttl = content_type_list[i][3] or ""
+				local req_headers = ngx_req_get_headers() --get all request headers
+				local cookies = req_headers["cookie"] or "" --for dynamic pages
+				local key = request_uri .. cookies
+				local count = cached:get(key) or nil
 
-			if count == nil then
-				if content_type_list[i][4] == 1 then
-					ngx_log(ngx_LOG_TYPE, " Not yet or expired cached putting into cache " )
+				if count == nil then
+					if #content_type_list[i][5] > 0 and #content_type_list[i][6] > 0 then
+						local res = ngx.location.capture(request_uri)
+						if res then
+							for z=1, #content_type_list[i][5] do
+								if res.body and res.status == content_type_list[i][5][z] then
+									local output_minified = res.body
+
+									for x=1,#content_type_list[i][6] do
+										output_minified = string_gsub(output_minified, content_type_list[i][6][x][1], content_type_list[i][6][x][2])
+									end --end foreach regex check
+
+									if content_type_list[i][4] == 1 then
+										ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+									end
+									ngx_header.content_length = #output_minified
+									ngx_header.content_type = content_type_list[i][1]
+									cached:set(key, output_minified, ttl)
+									cached:set("s"..key, res.status, ttl)
+									ngx_say(output_minified)
+									ngx_exit(content_type_list[i][5][z])
+								end
+							end
+						end
+					end
+
+					break --break out loop since matched content-type header
+
+				else
+					if content_type_list[i][4] == 1 then
+						ngx_log(ngx_LOG_TYPE, " Served from cache " )
+					end
+
+					local output_minified = cached:get(key)
+					local res_status = cached:get("s"..key)
+					ngx_header.content_length = #output_minified
+					ngx_header.content_type = content_type_list[i][1]
+					ngx_say(output_minified)
+					ngx_exit(res_status)
 				end
-				
-				
-				local res = ngx.location.capture(request_uri)
-				--ngx_log(ngx_LOG_TYPE, " response status is " .. res.status )
-				if res then
-					if res.body and res.status == 200 then
-						local output_minified = res.body
+			else --shared mem zone not specified
+				if #content_type_list[i][5] > 0 and #content_type_list[i][6] > 0 then
+					local res = ngx.location.capture(request_uri)
+					if res then
+						for z=1, #content_type_list[i][5] do
+							if res.body and res.status == content_type_list[i][5][z] then
+								local output_minified = res.body
 
-						for x=1,#content_type_list[i][5] do
-							output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
-						end --end foreach regex check
+								for x=1,#content_type_list[i][6] do
+									output_minified = string_gsub(output_minified, content_type_list[i][6][x][1], content_type_list[i][6][x][2])
+								end --end foreach regex check
 
-						ngx_header.content_length = #output_minified
-						ngx_header.content_type = content_type_list[i][1]
-						cached:set(key, output_minified, ttl)
-						ngx_say(output_minified)
-						ngx_exit(ngx_HTTP_OK)
+								ngx_header.content_length = #output_minified
+								ngx_header.content_type = content_type_list[i][1]
+								ngx_say(output_minified)
+								ngx_exit(content_type_list[i][5][z])
+							end
+						end
 					end
 				end
 
 				break --break out loop since matched content-type header
 
-			else
-				if content_type_list[i][4] == 1 then
-					ngx_log(ngx_LOG_TYPE, " Served from cache " )
-				end
-
-				local output_minified = cached:get(key)
-				ngx_header.content_length = #output_minified
-				ngx_header.content_type = content_type_list[i][1]
-				ngx_say(output_minified)
-				ngx_exit(ngx_HTTP_OK)
-			end
-		else --shared mem zone not specified
-			local res = ngx.location.capture(request_uri)
-			if res then
-				if res.body and res.status == 200 then
-					local output_minified = res.body
-
-					for x=1,#content_type_list[i][5] do
-						output_minified = string_gsub(output_minified, content_type_list[i][5][x][1], content_type_list[i][5][x][2])
-					end --end foreach regex check
-
-					ngx_header.content_length = #output_minified
-					ngx_header.content_type = content_type_list[i][1]
-					ngx_say(output_minified)
-					ngx_exit(ngx_HTTP_OK)
-				end
 			end
 
-			break --break out loop since matched content-type header
-
-		end
-
-	end --end content_type if check
-end --end content_type foreach mime type table check
+		end --end content_type if check
+	end --end content_type foreach mime type table check
+end --end minification function
+minification(minify_table)
