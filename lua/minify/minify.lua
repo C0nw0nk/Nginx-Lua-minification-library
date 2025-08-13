@@ -69,7 +69,7 @@ local minify_table = {
 		ngx.shared.minify, --shared cache zone to use or empty string to not use ""
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
-		{200,}, --response status codes to minify
+		{200,404,}, --response status codes to minify
 		{"GET",}, --request method to cache
 		{ --bypass on cookie
 			{
@@ -174,6 +174,8 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 
 ]]
 
+local next = next
+local type = type
 local ngx_req_get_headers = ngx.req.get_headers
 local ngx_header = ngx.header
 local ngx_var = ngx.var
@@ -187,6 +189,7 @@ local ngx_LOG_TYPE = ngx.STDERR
 local request_uri = ngx_var.request_uri or "/"
 local ngx_exit = ngx.exit
 local ngx_say = ngx.say
+local ngx_status = ngx.status
 
 local function minification(content_type_list)
 	local content_type = ngx_header["content-type"] or ""
@@ -274,7 +277,7 @@ local function minification(content_type_list)
 						local res = ngx.location.capture(request_uri)
 						if res then
 							for z=1, #content_type_list[i][5] do
-								if res.body and res.status == content_type_list[i][5][z] then
+								if #res.body > 0 and res.status == content_type_list[i][5][z] then
 									local output_minified = res.body
 
 									if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
@@ -296,7 +299,14 @@ local function minification(content_type_list)
 									end
 									cached:set(key, output_minified, ttl)
 									cached:set("s"..key, res.status, ttl)
-									--cached:set("h"..key, res.header, ttl)
+									cached:set("h"..key, res.header, ttl)
+									if res.header ~= nil and type(res.header) == "table" then
+										for headerName, header in next, res.header do
+											--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+											ngx_header[headerName] = header
+										end
+									end
+									ngx_status = res.status
 									ngx_say(output_minified)
 									ngx_exit(content_type_list[i][5][z])
 								end
@@ -313,6 +323,13 @@ local function minification(content_type_list)
 
 					local output_minified = cached:get(key)
 					local res_status = cached:get("s"..key)
+					local res_header = cached:get("h"..key) or nil
+					if res_header ~= nil and type(res_header) == "table" then
+						for headerName, header in next, res_header do
+							--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+							ngx_header[headerName] = header
+						end
+					end
 					ngx_header.content_length = #output_minified
 					ngx_header.content_type = content_type_list[i][1]
 					if content_type_list[i][9] == 1 then
@@ -321,6 +338,7 @@ local function minification(content_type_list)
 					if content_type_list[i][10] == 1 and cookie_match == 0 then
 						ngx_header["Set-Cookie"] = nil
 					end
+					ngx_status = res_status
 					ngx_say(output_minified)
 					ngx_exit(res_status)
 				end
@@ -329,7 +347,7 @@ local function minification(content_type_list)
 					local res = ngx.location.capture(request_uri)
 					if res then
 						for z=1, #content_type_list[i][5] do
-							if res.body and res.status == content_type_list[i][5][z] then
+							if #res.body > 0 and res.status == content_type_list[i][5][z] then
 								local output_minified = res.body
 
 								if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
@@ -340,6 +358,7 @@ local function minification(content_type_list)
 
 								ngx_header.content_length = #output_minified
 								ngx_header.content_type = content_type_list[i][1]
+								ngx_status = res.status
 								ngx_say(output_minified)
 								ngx_exit(content_type_list[i][5][z])
 							end
