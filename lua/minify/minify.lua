@@ -72,7 +72,11 @@ local minify_table = {
 		{200,}, --response status codes to minify
 		{"GET",}, --request method to cache
 		{ --bypass on cookie
-			{"logged_in","1",},
+			{
+				"logged_in", --cookie name
+				"1", --cookie value
+				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
+			},
 			--{"name1","value1",},
 		}, --bypass on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
@@ -107,7 +111,11 @@ local minify_table = {
 		{200,}, --response status codes to minify
 		{"GET",}, --request method to cache
 		{ --bypass on cookie
-			{"logged_in","1",},
+			{
+				"logged_in", --cookie name
+				"1", --cookie value
+				0, --0 guest user cache only 1 both guest and logged in user cache
+			},
 			--{"name1","value1",},
 		}, --bypass on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
@@ -132,7 +140,11 @@ local minify_table = {
 		{200,}, --response status codes to minify
 		{"GET",}, --request method to cache
 		{ --bypass on cookie
-			{"logged_in","1",},
+			{
+				"logged_in", --cookie name
+				"1", --cookie value
+				0, --0 guest user cache only 1 both guest and logged in user cache
+			},
 			--{"name1","value1",},
 		}, --bypass on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
@@ -186,8 +198,11 @@ local function minification(content_type_list)
 			if content_type_list[i][9] == 1 then
 				ngx_header["X-Cache-Status"] = "MISS"
 			end
+
+			local request_method_match = 0
+			local cookie_match = 0
+			local request_uri_match = 0
 			if content_type_list[i][6] ~= "" then
-				local request_method_match = 0
 				for a=1, #content_type_list[i][6] do
 					if ngx_var.request_method == content_type_list[i][6][a] then
 						request_method_match = 1
@@ -200,27 +215,31 @@ local function minification(content_type_list)
 				end
 			end
 			if content_type_list[i][7] ~= "" then
-				local cookie_match = 0
+				local guest_or_logged_in = 0
 				for a=1, #content_type_list[i][7] do
 					local cookie_name = content_type_list[i][7][a][1]
 					local cookie_value = content_type_list[i][7][a][2]
+					guest_or_logged_in = content_type_list[i][7][a][3]
 					local cookie_exist = ngx_var["cookie_" .. cookie_name] or ""
 					if cookie_exist then
 						if string_match(cookie_exist, cookie_value ) then
 							cookie_match = 1
+							break
 						end
 					end
 				end
 				if cookie_match == 1 then
 					--ngx_log(ngx_LOG_TYPE, "cookie matched so bypass")
-					return
+					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
+						return
+					end
 				end
 			end
 			if content_type_list[i][8] ~= "" then
-				local request_uri_match = 0
 				for a=1, #content_type_list[i][8] do
 					if string_match(request_uri, content_type_list[i][8][a] ) then
 						request_uri_match = 1
+						break
 					end
 				end
 				if request_uri_match == 1 then
@@ -233,15 +252,17 @@ local function minification(content_type_list)
 			if cached ~= "" then
 				local ttl = content_type_list[i][3] or ""
 				local req_headers = ngx_req_get_headers() --get all request headers
-				local cookies = req_headers["cookie"] or "" --for dynamic pages
 				local cookie_string = ""
-				if type(cookies) ~= "table" then
-					--ngx_log(ngx_LOG_TYPE, " cookies are string ")
-					cookie_string = cookies
-				else
-					--ngx_log(ngx_LOG_TYPE, " cookies are table ")
-					for t=1, #cookies do
-						cookie_string = cookie_string .. cookies[t]
+				if cookie_match == 1 then
+					local cookies = req_headers["cookie"] or "" --for dynamic pages
+					if type(cookies) ~= "table" then
+						--ngx_log(ngx_LOG_TYPE, " cookies are string ")
+						cookie_string = cookies
+					else
+						--ngx_log(ngx_LOG_TYPE, " cookies are table ")
+						for t=1, #cookies do
+							cookie_string = cookie_string .. cookies[t]
+						end
 					end
 				end
 				--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
@@ -249,16 +270,18 @@ local function minification(content_type_list)
 				local count = cached:get(key) or nil
 
 				if count == nil then
-					if #content_type_list[i][5] > 0 and #content_type_list[i][11] > 0 then
+					if #content_type_list[i][5] > 0 then
 						local res = ngx.location.capture(request_uri)
 						if res then
 							for z=1, #content_type_list[i][5] do
 								if res.body and res.status == content_type_list[i][5][z] then
 									local output_minified = res.body
 
-									for x=1,#content_type_list[i][11] do
-										output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
-									end --end foreach regex check
+									if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
+										for x=1,#content_type_list[i][11] do
+											output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
+										end --end foreach regex check
+									end
 
 									if content_type_list[i][4] == 1 then
 										ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
@@ -268,11 +291,12 @@ local function minification(content_type_list)
 									if content_type_list[i][9] == 1 then
 										ngx_header["X-Cache-Status"] = "UPDATING"
 									end
-									if content_type_list[i][10] == 1 then
+									if content_type_list[i][10] == 1 and cookie_match == 0 then
 										ngx_header["Set-Cookie"] = nil
 									end
 									cached:set(key, output_minified, ttl)
 									cached:set("s"..key, res.status, ttl)
+									--cached:set("h"..key, res.header, ttl)
 									ngx_say(output_minified)
 									ngx_exit(content_type_list[i][5][z])
 								end
@@ -294,23 +318,25 @@ local function minification(content_type_list)
 					if content_type_list[i][9] == 1 then
 						ngx_header["X-Cache-Status"] = "HIT"
 					end
-					if content_type_list[i][10] == 1 then
+					if content_type_list[i][10] == 1 and cookie_match == 0 then
 						ngx_header["Set-Cookie"] = nil
 					end
 					ngx_say(output_minified)
 					ngx_exit(res_status)
 				end
 			else --shared mem zone not specified
-				if #content_type_list[i][5] > 0 and #content_type_list[i][11] > 0 then
+				if #content_type_list[i][5] > 0 then
 					local res = ngx.location.capture(request_uri)
 					if res then
 						for z=1, #content_type_list[i][5] do
 							if res.body and res.status == content_type_list[i][5][z] then
 								local output_minified = res.body
 
-								for x=1,#content_type_list[i][11] do
-									output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
-								end --end foreach regex check
+								if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
+									for x=1,#content_type_list[i][11] do
+										output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
+									end --end foreach regex check
+								end
 
 								ngx_header.content_length = #output_minified
 								ngx_header.content_type = content_type_list[i][1]
