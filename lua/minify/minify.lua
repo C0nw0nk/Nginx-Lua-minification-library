@@ -333,49 +333,101 @@ local function minification(content_type_list)
 
 				if count == nil then
 					if #content_type_list[i][5] > 0 then
-						local res = ngx.location.capture(content_type_list[i][11], {
-						method = map[ngx.var.request_method],
-						body = request_body, --ngx.var.request_body,
-						args = "",
-						headers = req_headers,
-						})
-						if res then
-							for z=1, #content_type_list[i][5] do
-								if #res.body > 0 and res.status == content_type_list[i][5][z] then
-									local output_minified = res.body
+						--[[
+						local pcall = pcall
+						local require = require
+						local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+						if restyhttp then
+							local httpc = require("resty.http").new()
+							local res = httpc:request_uri(content_type_list[i][11], {
+								method = map[ngx.var.request_method],
+								body = request_body, --ngx.var.request_body,
+								headers = req_headers,
+							})
+							if res then
+								for z=1, #content_type_list[i][5] do
+									if #res.body > 0 and res.status == content_type_list[i][5][z] then
+										local output_minified = res.body
 
-									if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
-										for x=1,#content_type_list[i][12] do
-											output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
-										end --end foreach regex check
-									end
-
-									if content_type_list[i][4] == 1 then
-										ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
-									end
-									ngx_header.content_length = #output_minified
-									ngx_header.content_type = content_type_list[i][1]
-									if content_type_list[i][9] == 1 then
-										ngx_header["X-Cache-Status"] = "UPDATING"
-									end
-									if content_type_list[i][10] == 1 and cookie_match == 0 then
-										ngx_header["Set-Cookie"] = nil
-									end
-									cached:set(key, output_minified, ttl)
-									cached:set("s"..key, res.status, ttl)
-									cached:set("h"..key, res.header, ttl)
-									if res.header ~= nil and type(res.header) == "table" then
-										for headerName, header in next, res.header do
-											--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-											ngx_header[headerName] = header
+										if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
+											for x=1,#content_type_list[i][12] do
+												output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
+											end --end foreach regex check
 										end
+
+										if content_type_list[i][4] == 1 then
+											ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+										end
+										ngx_header.content_length = #output_minified
+										ngx_header.content_type = content_type_list[i][1]
+										if content_type_list[i][9] == 1 then
+											ngx_header["X-Cache-Status"] = "UPDATING"
+										end
+										if content_type_list[i][10] == 1 and cookie_match == 0 then
+											ngx_header["Set-Cookie"] = nil
+										end
+										cached:set(key, output_minified, ttl)
+										cached:set("s"..key, res.status, ttl)
+										cached:set("h"..key, res.headers, ttl)
+										if res.header ~= nil and type(res.headers) == "table" then
+											for headerName, header in next, res.headers do
+												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+												ngx_header[headerName] = header
+											end
+										end
+										ngx_status = res.status
+										ngx_say(output_minified)
+										ngx_exit(content_type_list[i][5][z])
 									end
-									ngx_status = res.status
-									ngx_say(output_minified)
-									ngx_exit(content_type_list[i][5][z])
 								end
 							end
-						end
+						else
+						]]
+
+							local res = ngx.location.capture(content_type_list[i][11], {
+							method = map[ngx.var.request_method],
+							body = request_body, --ngx.var.request_body,
+							args = "",
+							headers = req_headers,
+							})
+							if res then
+								for z=1, #content_type_list[i][5] do
+									if #res.body > 0 and res.status == content_type_list[i][5][z] then
+										local output_minified = res.body
+
+										if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
+											for x=1,#content_type_list[i][12] do
+												output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
+											end --end foreach regex check
+										end
+
+										if content_type_list[i][4] == 1 then
+											ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+										end
+										ngx_header.content_length = #output_minified
+										ngx_header.content_type = content_type_list[i][1]
+										if content_type_list[i][9] == 1 then
+											ngx_header["X-Cache-Status"] = "UPDATING"
+										end
+										if content_type_list[i][10] == 1 and cookie_match == 0 then
+											ngx_header["Set-Cookie"] = nil
+										end
+										cached:set(key, output_minified, ttl)
+										cached:set("s"..key, res.status, ttl)
+										cached:set("h"..key, res.header, ttl)
+										if res.header ~= nil and type(res.header) == "table" then
+											for headerName, header in next, res.header do
+												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+												ngx_header[headerName] = header
+											end
+										end
+										ngx_status = res.status
+										ngx_say(output_minified)
+										ngx_exit(content_type_list[i][5][z])
+									end
+								end
+							end
+						--end
 					end
 
 					break --break out loop since matched content-type header
