@@ -59,6 +59,29 @@ access_by_lua_file conf/lua/minify/minify.lua;
 ]]
 
 --[[
+localize all standard Lua and ngx functions I use for better performance.
+]]
+local next = next
+local type = type
+local ngx_req_get_headers = ngx.req.get_headers
+local ngx_header = ngx.header
+local ngx_var = ngx.var
+--local string_find = string.find
+local string_match = string.match
+local string_gsub = string.gsub
+local ngx_arg = ngx.arg
+local ngx_log = ngx.log
+-- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
+local ngx_LOG_TYPE = ngx.STDERR
+local request_uri = ngx_var.request_uri or "/"
+local ngx_exit = ngx.exit
+local ngx_say = ngx.say
+local ngx_status = ngx.status
+--[[
+End localization
+]]
+
+--[[
 Settings used to modify and compress each invidual mime type output you specify on the fly.
 
 I decided to make it as easy to use and customisable as possible to help the community that will use this.
@@ -82,6 +105,7 @@ local minify_table = {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		request_uri,
 		{
 			--[[
 			Usage :
@@ -121,6 +145,7 @@ local minify_table = {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
+		request_uri,
 		{
 			--[[
 			Usage :
@@ -150,6 +175,7 @@ local minify_table = {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
+		request_uri,
 		{
 			--[[
 			Usage :
@@ -174,22 +200,17 @@ THIS BLOCK IS ENTIRELY WRITTEN IN CAPS LOCK TO SHOW YOU HOW SERIOUS I AM.
 
 ]]
 
-local next = next
-local type = type
-local ngx_req_get_headers = ngx.req.get_headers
-local ngx_header = ngx.header
-local ngx_var = ngx.var
---local string_find = string.find
-local string_match = string.match
-local string_gsub = string.gsub
-local ngx_arg = ngx.arg
-local ngx_log = ngx.log
--- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
-local ngx_LOG_TYPE = ngx.STDERR
-local request_uri = ngx_var.request_uri or "/"
-local ngx_exit = ngx.exit
-local ngx_say = ngx.say
-local ngx_status = ngx.status
+--[[]]
+local ngx_cookie_time = ngx.cookie_time
+local ngx_time = ngx.time
+local currenttime = ngx_time() --Current time on server
+local expire_time = 8640000 --One day
+set_cookie1 = "name1".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+set_cookie2 = "name2".."=".."2".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+set_cookie3 = ""--"logged_in".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+set_cookies = {set_cookie1,set_cookie2,set_cookie3}
+ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+--[[]]
 
 local function minification(content_type_list)
 	local content_type = ngx_header["content-type"] or ""
@@ -251,10 +272,48 @@ local function minification(content_type_list)
 				end
 			end
 
+			local map = {
+				GET = ngx.HTTP_GET,
+				HEAD = ngx.HTTP_HEAD,
+				PUT = ngx.HTTP_PUT,
+				POST = ngx.HTTP_POST,
+				DELETE = ngx.HTTP_DELETE,
+				OPTIONS = ngx.HTTP_OPTIONS,
+				MKCOL= ngx.HTTP_MKCOL,
+				COPY = ngx.HTTP_COPY,
+				MOVE = ngx.HTTP_MOVE,
+				PROPFIND = ngx.HTTP_PROPFIND,
+				PROPPATCH = ngx.HTTP_PROPPATCH,
+				LOCK = ngx.HTTP_LOCK,
+				UNLOCK = ngx.HTTP_UNLOCK,
+				PATCH = ngx.HTTP_PATCH,
+				TRACE = ngx.HTTP_TRACE,
+				CONNECT = ngx.HTTP_CONNECT,
+			}
+			ngx.req.read_body()
+			local request_body = ngx.req.get_body_data()
+			local request_body_file = ""
+			if not request_body then
+				local file = ngx.req.get_body_file()
+				if file then
+					request_body_file = file
+				end
+			end
+			if request_body_file ~= "" then
+				local fh, err = io.open(request_body_file, "rb")
+				if err then
+					ngx_status = ngx.HTTP_INTERNAL_SERVER_ERROR
+					ngx_log(ngx_LOG_TYPE, "error reading request_body_file:", err)
+					return
+				end
+				request_body = fh:read("*all")
+				fh:close()
+			end
+			local req_headers = ngx_req_get_headers() --get all request headers
+
 			local cached = content_type_list[i][2] or ""
 			if cached ~= "" then
 				local ttl = content_type_list[i][3] or ""
-				local req_headers = ngx_req_get_headers() --get all request headers
 				local cookie_string = ""
 				if cookie_match == 1 then
 					local cookies = req_headers["cookie"] or "" --for dynamic pages
@@ -269,20 +328,25 @@ local function minification(content_type_list)
 					end
 				end
 				--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
-				local key = request_uri .. cookie_string
+				local key = content_type_list[i][11] .. cookie_string
 				local count = cached:get(key) or nil
 
 				if count == nil then
 					if #content_type_list[i][5] > 0 then
-						local res = ngx.location.capture(request_uri)
+						local res = ngx.location.capture(content_type_list[i][11], {
+						method = map[ngx.var.request_method],
+						body = request_body, --ngx.var.request_body,
+						args = "",
+						headers = req_headers,
+						})
 						if res then
 							for z=1, #content_type_list[i][5] do
 								if #res.body > 0 and res.status == content_type_list[i][5][z] then
 									local output_minified = res.body
 
-									if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
-										for x=1,#content_type_list[i][11] do
-											output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
+									if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
+										for x=1,#content_type_list[i][12] do
+											output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
 										end --end foreach regex check
 									end
 
@@ -344,15 +408,20 @@ local function minification(content_type_list)
 				end
 			else --shared mem zone not specified
 				if #content_type_list[i][5] > 0 then
-					local res = ngx.location.capture(request_uri)
+					local res = ngx.location.capture(content_type_list[i][11], {
+					method = map[ngx.var.request_method],
+					body = request_body, --ngx.var.request_body,
+					args = "",
+					headers = req_headers,
+					})
 					if res then
 						for z=1, #content_type_list[i][5] do
 							if #res.body > 0 and res.status == content_type_list[i][5][z] then
 								local output_minified = res.body
 
-								if content_type_list[i][11] ~= "" and #content_type_list[i][11] > 0 then
-									for x=1,#content_type_list[i][11] do
-										output_minified = string_gsub(output_minified, content_type_list[i][11][x][1], content_type_list[i][11][x][2])
+								if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
+									for x=1,#content_type_list[i][12] do
+										output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
 									end --end foreach regex check
 								end
 
