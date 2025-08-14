@@ -340,8 +340,8 @@ local function minification(content_type_list)
 						if restyhttp then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][11], {
-								method = map[ngx.var.request_method],
-								body = request_body, --ngx.var.request_body,
+								method = map[ngx_var.request_method],
+								body = request_body, --ngx_var.request_body,
 								headers = req_headers,
 							})
 							if res then
@@ -385,8 +385,8 @@ local function minification(content_type_list)
 						]]
 
 							local res = ngx.location.capture(content_type_list[i][11], {
-							method = map[ngx.var.request_method],
-							body = request_body, --ngx.var.request_body,
+							method = map[ngx_var.request_method],
+							body = request_body, --ngx_var.request_body,
 							args = "",
 							headers = req_headers,
 							})
@@ -461,8 +461,8 @@ local function minification(content_type_list)
 			else --shared mem zone not specified
 				if #content_type_list[i][5] > 0 then
 					local res = ngx.location.capture(content_type_list[i][11], {
-					method = map[ngx.var.request_method],
-					body = request_body, --ngx.var.request_body,
+					method = map[ngx_var.request_method],
+					body = request_body, --ngx_var.request_body,
 					args = "",
 					headers = req_headers,
 					})
