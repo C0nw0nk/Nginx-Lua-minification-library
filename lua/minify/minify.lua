@@ -591,6 +591,7 @@ local function minification(content_type_list)
 				end
 			else --shared mem zone not specified
 				if #content_type_list[i][5] > 0 then
+					--[[
 					local res = ngx.location.capture(content_type_list[i][11], {
 					method = map[ngx_var.request_method],
 					body = request_body, --ngx_var.request_body,
@@ -613,6 +614,82 @@ local function minification(content_type_list)
 								ngx_status = res.status
 								ngx_say(output_minified)
 								ngx_exit(content_type_list[i][5][z])
+							end
+						end
+					end
+					]]
+					--[[]]
+					local pcall = pcall
+					local require = require
+					local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+					if restyhttp and content_type_list[i][12] then
+						local httpc = require("resty.http").new()
+						local res = httpc:request_uri(content_type_list[i][11], {
+							method = map[ngx_var.request_method],
+							body = request_body, --ngx_var.request_body,
+							headers = req_headers,
+						})
+						if res then
+							for z=1, #content_type_list[i][5] do
+								if #res.body > 0 and res.status == content_type_list[i][5][z] then
+									local output_minified = res.body
+
+									if content_type_list[i][13] ~= "" and #content_type_list[i][13] > 0 then
+										for x=1,#content_type_list[i][13] do
+											output_minified = string_gsub(output_minified, content_type_list[i][13][x][1], content_type_list[i][13][x][2])
+										end --end foreach regex check
+									end
+
+									ngx_header.content_length = #output_minified
+									ngx_header.content_type = content_type_list[i][1]
+									if res.header ~= nil and type(res.headers) == "table" then
+										for headerName, header in next, res.headers do
+											--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+											ngx_header[headerName] = header
+										end
+									end
+									--ngx_status = res.status
+									ngx_status = response_status_match(res.status)
+									ngx_say(output_minified)
+									ngx_exit(response_status_match(content_type_list[i][5][z]))
+									--ngx_exit(content_type_list[i][5][z])
+								end
+							end
+						end
+					else
+					--[[]]
+
+						local res = ngx.location.capture(content_type_list[i][11], {
+						method = map[ngx_var.request_method],
+						body = request_body, --ngx_var.request_body,
+						args = "",
+						headers = req_headers,
+						})
+						if res then
+							for z=1, #content_type_list[i][5] do
+								if #res.body > 0 and res.status == content_type_list[i][5][z] then
+									local output_minified = res.body
+
+									if content_type_list[i][13] ~= "" and #content_type_list[i][13] > 0 then
+										for x=1,#content_type_list[i][13] do
+											output_minified = string_gsub(output_minified, content_type_list[i][13][x][1], content_type_list[i][13][x][2])
+										end --end foreach regex check
+									end
+
+									ngx_header.content_length = #output_minified
+									ngx_header.content_type = content_type_list[i][1]
+									if res.header ~= nil and type(res.header) == "table" then
+										for headerName, header in next, res.header do
+											--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+											ngx_header[headerName] = header
+										end
+									end
+									--ngx_status = res.status
+									ngx_status = response_status_match(res.status)
+									ngx_say(output_minified)
+									ngx_exit(response_status_match(content_type_list[i][5][z]))
+									--ngx_exit(content_type_list[i][5][z])
+								end
 							end
 						end
 					end
