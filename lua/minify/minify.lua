@@ -63,6 +63,7 @@ localize all standard Lua and ngx functions I use for better performance.
 ]]
 local next = next
 local type = type
+local ngx = ngx
 local ngx_req_get_headers = ngx.req.get_headers
 local ngx_header = ngx.header
 local ngx_var = ngx.var
@@ -106,11 +107,13 @@ local minify_table = {
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		request_uri,
-		{
+		false, --true to use lua resty.http library if exist
+		{ --Minification / Minify HTML output
 			--[[
 			Usage :
 			Regex, Replacement
 			Text, Replacement
+			You can use this to alter contents of the page output.
 			]]
 			--Example :
 			--{"replace me", " with me! ",},
@@ -146,10 +149,12 @@ local minify_table = {
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
 		request_uri,
-		{
+		false, --true to use lua resty.http library if exist
+		{ --Minification / Minify HTML output
 			--[[
 			Usage :
 			Regex, Replacement
+			You can use this to alter contents of the page output.
 			]]
 			--{"(//[^.*]*.\n)", "",},
 			--{"(/%*[^*]*%*/)", "",},
@@ -176,10 +181,12 @@ local minify_table = {
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest)
 		request_uri,
-		{
+		false, --true to use lua resty.http library if exist
+		{ --Minification / Minify HTML output
 			--[[
 			Usage :
 			Regex, Replacement
+			You can use this to alter contents of the page output.
 			]]
 	    	--{"(//[^.*]*.\n)", "",},
 			--{"(/%*[^*]*%*/)", "",},
@@ -333,11 +340,11 @@ local function minification(content_type_list)
 
 				if count == nil then
 					if #content_type_list[i][5] > 0 then
-						--[[
+						--[[]]
 						local pcall = pcall
 						local require = require
 						local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
-						if restyhttp then
+						if restyhttp and content_type_list[i][12] then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][11], {
 								method = map[ngx_var.request_method],
@@ -349,9 +356,9 @@ local function minification(content_type_list)
 									if #res.body > 0 and res.status == content_type_list[i][5][z] then
 										local output_minified = res.body
 
-										if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
-											for x=1,#content_type_list[i][12] do
-												output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
+										if content_type_list[i][13] ~= "" and #content_type_list[i][13] > 0 then
+											for x=1,#content_type_list[i][13] do
+												output_minified = string_gsub(output_minified, content_type_list[i][13][x][1], content_type_list[i][13][x][2])
 											end --end foreach regex check
 										end
 
@@ -382,7 +389,7 @@ local function minification(content_type_list)
 								end
 							end
 						else
-						]]
+						--[[]]
 
 							local res = ngx.location.capture(content_type_list[i][11], {
 							method = map[ngx_var.request_method],
@@ -395,9 +402,9 @@ local function minification(content_type_list)
 									if #res.body > 0 and res.status == content_type_list[i][5][z] then
 										local output_minified = res.body
 
-										if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
-											for x=1,#content_type_list[i][12] do
-												output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
+										if content_type_list[i][13] ~= "" and #content_type_list[i][13] > 0 then
+											for x=1,#content_type_list[i][13] do
+												output_minified = string_gsub(output_minified, content_type_list[i][13][x][1], content_type_list[i][13][x][2])
 											end --end foreach regex check
 										end
 
@@ -427,7 +434,7 @@ local function minification(content_type_list)
 									end
 								end
 							end
-						--end
+						end
 					end
 
 					break --break out loop since matched content-type header
@@ -471,9 +478,9 @@ local function minification(content_type_list)
 							if #res.body > 0 and res.status == content_type_list[i][5][z] then
 								local output_minified = res.body
 
-								if content_type_list[i][12] ~= "" and #content_type_list[i][12] > 0 then
-									for x=1,#content_type_list[i][12] do
-										output_minified = string_gsub(output_minified, content_type_list[i][12][x][1], content_type_list[i][12][x][2])
+								if content_type_list[i][13] ~= "" and #content_type_list[i][13] > 0 then
+									for x=1,#content_type_list[i][13] do
+										output_minified = string_gsub(output_minified, content_type_list[i][13][x][1], content_type_list[i][13][x][2])
 									end --end foreach regex check
 								end
 
