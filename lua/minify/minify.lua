@@ -279,6 +279,124 @@ local function minification(content_type_list)
 				end
 			end
 
+			--[[]]
+			--I use this to override the status output
+			local function response_status_match(resstatus)
+				--ngx_log(ngx_LOG_TYPE, " res status is " .. tostring(resstatus) )
+				if resstatus == 100 then
+					return ngx.HTTP_CONTINUE --(100)
+				end
+				if resstatus == 101 then
+					return ngx.HTTP_SWITCHING_PROTOCOLS --(101)
+				end
+				if resstatus == 200 then
+					return ngx.HTTP_OK --(200)
+				end
+				if resstatus == 201 then
+					return ngx.HTTP_CREATED --(201)
+				end
+				if resstatus == 202 then
+					return ngx.HTTP_ACCEPTED --(202)
+				end
+				if resstatus == 204 then
+					return ngx.HTTP_NO_CONTENT --(204)
+				end
+				if resstatus == 206 then
+					return ngx.HTTP_PARTIAL_CONTENT --(206)
+				end
+				if resstatus == 300 then
+					return ngx.HTTP_SPECIAL_RESPONSE --(300)
+				end
+				if resstatus == 301 then
+					return ngx.HTTP_MOVED_PERMANENTLY --(301)
+				end
+				if resstatus == 302 then
+					return ngx.HTTP_MOVED_TEMPORARILY --(302)
+				end
+				if resstatus == 303 then
+					return ngx.HTTP_SEE_OTHER --(303)
+				end
+				if resstatus == 304 then
+					return ngx.HTTP_NOT_MODIFIED --(304)
+				end
+				if resstatus == 307 then
+					return ngx.HTTP_TEMPORARY_REDIRECT --(307)
+				end
+				if resstatus == 308 then
+					return ngx.HTTP_PERMANENT_REDIRECT --(308)
+				end
+				if resstatus == 400 then
+					return ngx.HTTP_BAD_REQUEST --(400)
+				end
+				if resstatus == 401 then
+					return ngx.HTTP_UNAUTHORIZED --(401)
+				end
+				if resstatus == 402 then
+					return ngx.HTTP_PAYMENT_REQUIRED --(402)
+				end
+				if resstatus == 403 then
+					return ngx.HTTP_FORBIDDEN --(403)
+				end
+				if resstatus == 404 then
+					return ngx.OK --override lua error attempt to set status 404 via ngx.exit after sending out the response status 200
+					--return ngx.HTTP_NOT_FOUND --(404)
+				end
+				if resstatus == 405 then
+					return ngx.HTTP_NOT_ALLOWED --(405)
+				end
+				if resstatus == 406 then
+					return ngx.HTTP_NOT_ACCEPTABLE --(406)
+				end
+				if resstatus == 408 then
+					return ngx.HTTP_REQUEST_TIMEOUT --(408)
+				end
+				if resstatus == 409 then
+					return ngx.HTTP_CONFLICT --(409)
+				end
+				if resstatus == 410 then
+					return ngx.HTTP_GONE --(410)
+				end
+				if resstatus == 426 then
+					return ngx.HTTP_UPGRADE_REQUIRED --(426)
+				end
+				if resstatus == 429 then
+					return ngx.HTTP_TOO_MANY_REQUESTS --(429)
+				end
+				if resstatus == 444 then
+					return ngx.HTTP_CLOSE --(444)
+				end
+				if resstatus == 451 then
+					return ngx.HTTP_ILLEGAL --(451)
+				end
+				if resstatus == 500 then
+					return ngx.HTTP_INTERNAL_SERVER_ERROR --(500)
+				end
+				if resstatus == 501 then
+					return ngx.HTTP_NOT_IMPLEMENTED --(501)
+				end
+				if resstatus == 501 then
+					return ngx.HTTP_METHOD_NOT_IMPLEMENTED --(501)
+				end
+				if resstatus == 502 then
+					return ngx.HTTP_BAD_GATEWAY --(502)
+				end
+				if resstatus == 503 then
+					return ngx.HTTP_SERVICE_UNAVAILABLE --(503)
+				end
+				if resstatus == 504 then
+					return ngx.HTTP_GATEWAY_TIMEOUT --(504)
+				end
+				if resstatus == 505 then
+					return ngx.HTTP_VERSION_NOT_SUPPORTED --(505)
+				end
+				if resstatus == 507 then
+					return ngx.HTTP_INSUFFICIENT_STORAGE --(507)
+				end
+				--If none of above just pass the numeric status back
+				return resstatus
+			end
+			--[[]]
+
 			local map = {
 				GET = ngx.HTTP_GET,
 				HEAD = ngx.HTTP_HEAD,
@@ -382,9 +500,11 @@ local function minification(content_type_list)
 												ngx_header[headerName] = header
 											end
 										end
-										ngx_status = res.status
+										--ngx_status = res.status
+										ngx_status = response_status_match(res.status)
 										ngx_say(output_minified)
-										ngx_exit(content_type_list[i][5][z])
+										ngx_exit(response_status_match(content_type_list[i][5][z]))
+										--ngx_exit(content_type_list[i][5][z])
 									end
 								end
 							end
@@ -428,9 +548,11 @@ local function minification(content_type_list)
 												ngx_header[headerName] = header
 											end
 										end
-										ngx_status = res.status
+										--ngx_status = res.status
+										ngx_status = response_status_match(res.status)
 										ngx_say(output_minified)
-										ngx_exit(content_type_list[i][5][z])
+										ngx_exit(response_status_match(content_type_list[i][5][z]))
+										--ngx_exit(content_type_list[i][5][z])
 									end
 								end
 							end
@@ -461,9 +583,11 @@ local function minification(content_type_list)
 					if content_type_list[i][10] == 1 and cookie_match == 0 then
 						ngx_header["Set-Cookie"] = nil
 					end
-					ngx_status = res_status
+					--ngx_status = res_status
+					ngx_status = response_status_match(res_status)
 					ngx_say(output_minified)
-					ngx_exit(res_status)
+					ngx_exit(response_status_match(res_status))
+					--ngx_exit(res_status)
 				end
 			else --shared mem zone not specified
 				if #content_type_list[i][5] > 0 then
