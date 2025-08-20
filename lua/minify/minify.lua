@@ -209,6 +209,8 @@ set_cookies = {set_cookie1,set_cookie2,set_cookie3}
 ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 ]]
 
+if content_cache ~= nil or #content_cache > 0 then
+
 local function minification(content_type_list)
 	for i=1,#content_type_list do
 		if string_match(URL, content_type_list[i][1]) then --if our host matches one in the table
@@ -849,8 +851,6 @@ local function minification(content_type_list)
 		--::end_for_loop::
 	end --end content_type foreach mime type table check
 end --end minification function
---minification(content_cache)
 
-if content_cache ~= nil or #content_cache > 0 then
-	minification(content_cache)
+minification(content_cache)
 end
