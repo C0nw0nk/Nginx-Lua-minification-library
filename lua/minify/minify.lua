@@ -71,7 +71,6 @@ local ngx_var = ngx.var
 local string_match = string.match
 local string_lower = string.lower
 local string_gsub = string.gsub
-local ngx_arg = ngx.arg
 local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
