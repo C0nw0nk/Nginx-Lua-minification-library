@@ -1,8 +1,6 @@
 # Nginx-Lua-minification-library
 A compression and minification library to minify static or dynamic assets like HTML PHP outputs CSS style sheets JS Javascript all text/html or plain text mime types that nginx can output that the browser will read so they are small compressed and have white space removed as well as helping reduce bandwidth consumption since the files served from nginx webserver are now smaller.
 
-> Please note, this script will only remove comments, white spaces and breaklines from your code. So, this mean it will not "rebuild" your files in order to minify the code. If you want something similar, I recommend using [Pagespeed](https://developers.google.com/speed/pagespeed/module/ "Pagespeed") from Google
-
 # Information :
 
 I built this script to compress and keep the specified mime types outputs small and minify the bandwidth that my servers have to use when serving these files to users.
@@ -19,7 +17,7 @@ https://github.com/C0nw0nk/Nginx-Lua-minification-library/pulls
 
 Edit settings inside `minify.lua` to add your own mime types or improve my regex. (Please share your soloutions and additions)
 
-https://github.com/C0nw0nk/Nginx-Lua-minification-library/blob/master/lua/minify/minify.lua#L69
+https://github.com/C0nw0nk/Nginx-Lua-minification-library/blob/master/lua/minify/minify.lua
 
 Add this to your Nginx configuration folder.
 
@@ -30,7 +28,7 @@ Once installed into your `nginx/conf/` folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 ```
-lua_shared_dict minify 10m; #Minified pages cache
+lua_shared_dict html_cache 10m; #HTML pages cache
 access_by_lua_file conf/lua/minify/minify.lua;
 ```
 
@@ -41,7 +39,7 @@ This will run for all websites on the nginx server
 ```
 http {
 #nginx config settings etc
-lua_shared_dict minify 10m; #Minified pages cache
+lua_shared_dict html_cache 10m; #HTML pages cache
 access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
@@ -52,7 +50,7 @@ This will make it run for this website only
 ```
 server {
 #nginx config settings etc
-lua_shared_dict minify 10m; #Minified pages cache
+lua_shared_dict html_cache 10m; #HTML pages cache
 access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
@@ -63,7 +61,7 @@ This will run in this location block only
 ```
 location / {
 #nginx config settings etc
-lua_shared_dict minify 10m; #Minified pages cache
+lua_shared_dict html_cache 10m; #HTML pages cache
 access_by_lua_file conf/lua/minify/minify.lua;
 #more config settings and some server stuff
 }
