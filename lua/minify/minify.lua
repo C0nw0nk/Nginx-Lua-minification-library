@@ -61,6 +61,7 @@ access_by_lua_file conf/lua/minify/minify.lua;
 --[[
 localize all standard Lua and ngx functions I use for better performance.
 ]]
+local tostring = tostring
 local next = next
 local type = type
 local ngx = ngx
