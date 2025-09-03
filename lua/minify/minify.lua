@@ -712,7 +712,7 @@ local function minification(content_type_list)
 								method = map[localized.ngx_var.request_method],
 								body = request_body, --localized.ngx_var.request_body,
 								args = "",
-								headers = req_headers,
+								--headers = req_headers,
 								})
 								if res then
 									for z=1, #content_type_list[i][6] do
@@ -930,7 +930,7 @@ local function minification(content_type_list)
 							method = map[localized.ngx_var.request_method],
 							body = request_body, --localized.ngx_var.request_body,
 							args = "",
-							headers = req_headers,
+							--headers = req_headers,
 							})
 							if res then
 								for z=1, #content_type_list[i][6] do
