@@ -188,7 +188,7 @@ localized.content_cache = {
 			{
 				".*", --"logged_in",--cookie name regex ".*" for any cookie
 				".*", --"1",--cookie value ".*" for any value
-				1, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
+				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
 			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
