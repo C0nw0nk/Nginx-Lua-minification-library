@@ -1,5 +1,6 @@
 --[[
 Introduction and details :
+Script Version: 1.0
 
 Copyright Conor Mcknight
 
@@ -66,6 +67,7 @@ localized.tostring = tostring
 localized.next = next
 localized.type = type
 localized.string_match = string.match
+localized.string_gmatch = string.gmatch
 localized.string_lower = string.lower
 localized.string_gsub = string.gsub
 localized.ngx = ngx
@@ -186,8 +188,8 @@ localized.content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				".*", --"logged_in",--cookie name regex ".*" for any cookie
-				".*", --"1",--cookie value ".*" for any value
+				".*", --cookie name regex ".*" for any cookie
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
 			--{"logged_in","1",0,},
@@ -210,7 +212,6 @@ localized.content_cache = {
 			--{"(/%*[^*]*%*/)", "",}, -- Example: this /*will*/ remove /*comments*/ (result: this remove)
 			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",},
 			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",},
-			--{"%s%s+", "",}, --remove blank characters from html
 			--{"[ \t]+$", "",}, --remove break lines (execution order of regex matters keep this last)
 			--{"<!%-%-[^%[]-->", "",},
 			{"%s%s+", " ",},
@@ -270,7 +271,6 @@ localized.content_cache = {
 	},
 
 }
-
 
 --[[
 
@@ -361,6 +361,62 @@ end
 if localized.content_cache ~= nil and #localized.content_cache > 0 then
 
 local function minification(content_type_list)
+
+	local function grab_cookies(cookie_name, cookie_value, guest_value)
+		local cookie_match = 0
+		local guest_or_logged_in = 0
+		local req_headers = localized.ngx_req_get_headers() --get all request headers
+		local cookies = req_headers["cookie"] or "" --for dynamic pages
+		-- strip all Set-Cookie attributes, e.g. "Name=value; Path=/; Max-Age=2592000" => "Name=value"
+		local function strip_attributes(cookie)
+			return localized.string_match(cookie, "[^;]+")
+		end
+		--iterator for use in "for in" loop, works both with strings and tables
+		local function iterate_cookies(cookies)
+			local i = 0
+			return function()
+				i = i+1
+				if localized.type(cookies) == "string" then
+					if i == 1 then return strip_attributes(cookies) end
+					elseif localized.type(cookies) == "table" then
+					if cookies[i] then return strip_attributes(cookies[i]) end
+				end
+			end
+		end
+		--at the first loop iteration separator should be an empty string if client browser send no cookies or "; " otherwise
+		local separator = cookies and "; " or ""
+		for cookie in iterate_cookies(cookies) do
+			cookies = cookies .. separator .. cookie
+			--next separator definitely should be a "; "
+			separator = "; "
+		end
+		local regex_1 = "[^;]+"
+		local regex_2 = "%s*(.*)%s*=%s*(.*)%s*"
+		local _ = localized.string_gsub(cookies, ";"," ; ") --fix semicolons
+		local _ = localized.string_gsub(_, "%s+", "") --remove white space
+		if not localized.string_match(_, ";$") then --if does not end in semicolon
+			_ = _ .. ";" --insert semicolon
+		end
+		for each_cookie in localized.string_gmatch(_, regex_1) do
+			if each_cookie ~= nil then
+				for cookiename, cookievalue in localized.string_gmatch(each_cookie, regex_2) do
+					if cookiename ~= nil and cookievalue ~= nil then
+						if localized.string_match(cookiename, cookie_name ) and localized.string_match(cookievalue, cookie_value ) then
+							--localized.ngx_log(localized.ngx_LOG_TYPE,"name is "..cookiename)
+							--localized.ngx_log(localized.ngx_LOG_TYPE,"value is "..cookievalue)
+							cookie_match = 1
+							if guest_value == 1 then
+								guest_or_logged_in = 1
+							end
+							break --break out since found match
+						end
+					end
+				end
+			end
+		end
+		return cookie_match, guest_or_logged_in
+	end
+
 	for i=1,#content_type_list do
 		if localized.string_match(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
@@ -389,16 +445,7 @@ local function minification(content_type_list)
 				for a=1, #content_type_list[i][8] do
 					local cookie_name = content_type_list[i][8][a][1]
 					local cookie_value = content_type_list[i][8][a][2]
-					local cookie_exist = localized.ngx_var["cookie_" .. cookie_name] or ""
-					if cookie_exist then
-						if localized.string_match(cookie_exist, cookie_value ) then
-							cookie_match = 1
-							if content_type_list[i][8][a][3] == 1 then
-								guest_or_logged_in = 1
-							end
-							break
-						end
-					end
+					cookie_match, guest_or_logged_in = grab_cookies(cookie_name, cookie_value, content_type_list[i][8][a][3])
 				end
 				if cookie_match == 1 then
 					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
@@ -699,7 +746,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -793,7 +840,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -839,7 +886,7 @@ local function minification(content_type_list)
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, " Served from cache " )
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Served from cache key : " .. key )
 							end
 
 							local output_minified = cached:get(key)
