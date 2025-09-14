@@ -1,6 +1,6 @@
 --[[
 Introduction and details :
-Script Version: 1.0
+Script Version: 1.1
 
 Copyright Conor Mcknight
 
@@ -69,6 +69,7 @@ localized.type = type
 localized.string_match = string.match
 localized.string_gmatch = string.gmatch
 localized.string_lower = string.lower
+localized.string_find = string.find
 localized.string_gsub = string.gsub
 localized.ngx = ngx
 localized.ngx_req_get_headers = localized.ngx.req.get_headers
@@ -144,7 +145,7 @@ localized.URL = localized.scheme .. "://" .. localized.host .. localized.request
 --[[
 End localization
 ]]
-
+localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] HERE11" )
 --[[
 Settings used to modify and compress each invidual mime type output you specify on the fly.
 
@@ -184,7 +185,7 @@ localized.content_cache = {
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
-		{200,206,}, --response status codes to cache
+		{200,206,405,}, --response status codes to cache
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
@@ -294,6 +295,54 @@ set_cookies = {set_cookie1,set_cookie2,set_cookie3}
 ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 ]]
 
+--I made this function because string find / match can be slow so i can speed it up for basic regex examples / matches
+--And it allows me to add more to the list easier rather than individually for each usage of string find / match
+local function faster_than_match(match) --tested via 100,000,000 times in a for loop super fast
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " url to match : " .. localized.URL .. " - input :" .. match)
+	if match == ".*"
+	or match == "^.*$"
+	or match == "*."
+	or match == "."
+	or match == "*"
+	or match == ""
+	or match == " "
+	--[[
+	or match == localized.URL
+	or match == localized.URL .. "$"
+	or match == "^" .. localized.URL
+	or match == "^" .. localized.URL .. "$"
+	or match == localized.request_uri
+	or match == localized.request_uri .. "$"
+	or match == "^" .. localized.request_uri
+	or match == "^" .. localized.request_uri .. "$"
+	or match == localized.host
+	or match == localized.host .. "$"
+	or match == "^" .. localized.host
+	or match == "^" .. localized.host .. "$"
+	or match == localized.scheme .. "://" .. localized.host
+	or match == localized.scheme .. "://" .. localized.host .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host
+	or match == localized.scheme .. "://" .. localized.host .. "/"
+	or match == localized.scheme .. "://" .. localized.host .. "/$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/"
+	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri
+	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri .."$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri
+	]]
+	or match == nil then
+		return true
+	else
+		return false
+	end
+end
+--Example both do the same thing just mine is faster
+--localized.var = "hello world"
+--for i=1, 1e8 do if localized.string_match(localized.var, ".*") then end end--slow
+--for i=1, 1e8 do if faster_than_match(localized.var) then end end--fast
+
 localized.get_resp_content_type_counter = 0
 local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
 	local resp_content_type = nil
@@ -359,6 +408,7 @@ if localized.content_cache == nil or #localized.content_cache == 0 then
 end
 
 if localized.content_cache ~= nil and #localized.content_cache > 0 then
+localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] HERE11" )
 
 local function minification(content_type_list)
 
@@ -394,14 +444,14 @@ local function minification(content_type_list)
 		local regex_2 = "%s*(.*)%s*=%s*(.*)%s*"
 		local _ = localized.string_gsub(cookies, ";"," ; ") --fix semicolons
 		local _ = localized.string_gsub(_, "%s+", "") --remove white space
-		if not localized.string_match(_, ";$") then --if does not end in semicolon
+		if not localized.string_find(_, ";$") then --if does not end in semicolon
 			_ = _ .. ";" --insert semicolon
 		end
 		for each_cookie in localized.string_gmatch(_, regex_1) do
 			if each_cookie ~= nil then
 				for cookiename, cookievalue in localized.string_gmatch(each_cookie, regex_2) do
 					if cookiename ~= nil and cookievalue ~= nil then
-						if localized.string_match(cookiename, cookie_name ) and localized.string_match(cookievalue, cookie_value ) then
+						if localized.string_find(cookiename, cookie_name ) and localized.string_find(cookievalue, cookie_value ) then
 							--localized.ngx_log(localized.ngx_LOG_TYPE,"name is "..cookiename)
 							--localized.ngx_log(localized.ngx_LOG_TYPE,"value is "..cookievalue)
 							cookie_match = 1
@@ -418,7 +468,7 @@ local function minification(content_type_list)
 	end
 
 	for i=1,#content_type_list do
-		if localized.string_match(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
+		if faster_than_match(content_type_list[i][1]) or localized.string_find(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
 				localized.ngx_header["X-Cache-Status"] = "MISS"
 			end
@@ -463,7 +513,7 @@ local function minification(content_type_list)
 			end
 			if content_type_list[i][9] ~= "" then
 				for a=1, #content_type_list[i][9] do
-					if localized.string_match(localized.request_uri, content_type_list[i][9][a] ) then
+					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri, content_type_list[i][9][a] ) then
 						request_uri_match = 1
 						break
 					end
@@ -659,6 +709,17 @@ local function minification(content_type_list)
 
 				local req_headers = localized.ngx_req_get_headers() --get all request headers
 
+				localized.cached_restyhttp = nil
+				local function check_resty_http()
+					if localized.cached_restyhttp ~= nil then
+						return localized.cached_restyhttp
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+					return localized.cached_restyhttp
+				end
+
 				local cached = content_type_list[i][3] or ""
 				if cached ~= "" then
 					local ttl = content_type_list[i][4] or ""
@@ -687,11 +748,7 @@ local function minification(content_type_list)
 
 					if content_type_cache == nil then
 						if #content_type_list[i][6] > 0 then
-
-							local pcall = pcall
-							local require = require
-							local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
-							if restyhttp and content_type_list[i][13] then
+							if content_type_list[i][13] and check_resty_http() then
 								local httpc = require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
 									method = map[localized.ngx_var.request_method],
@@ -708,7 +765,7 @@ local function minification(content_type_list)
 												for headerName, header in localized.next, res.headers do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-														if localized.string_match(header, content_type_list[i][2]) == nil then
+														if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -802,7 +859,7 @@ local function minification(content_type_list)
 												for headerName, header in localized.next, res.header do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-														if localized.string_match(header, content_type_list[i][2]) == nil then
+														if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -882,7 +939,7 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and localized.string_match(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
@@ -922,10 +979,7 @@ local function minification(content_type_list)
 				else --shared mem zone not specified
 					if #content_type_list[i][6] > 0 then
 						--[[]]
-						local pcall = pcall
-						local require = require
-						local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
-						if restyhttp and content_type_list[i][13] then
+						if content_type_list[i][13] and check_resty_http() then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
 								method = map[localized.ngx_var.request_method],
@@ -942,7 +996,7 @@ local function minification(content_type_list)
 											for headerName, header in localized.next, res.headers do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-													if localized.string_match(header, content_type_list[i][2]) == nil then
+													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
@@ -1020,7 +1074,7 @@ local function minification(content_type_list)
 											for headerName, header in localized.next, res.header do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-													if localized.string_match(header, content_type_list[i][2]) == nil then
+													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
