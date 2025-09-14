@@ -145,7 +145,7 @@ localized.URL = localized.scheme .. "://" .. localized.host .. localized.request
 --[[
 End localization
 ]]
-localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] HERE11" )
+
 --[[
 Settings used to modify and compress each invidual mime type output you specify on the fly.
 
@@ -408,7 +408,6 @@ if localized.content_cache == nil or #localized.content_cache == 0 then
 end
 
 if localized.content_cache ~= nil and #localized.content_cache > 0 then
-localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] HERE11" )
 
 local function minification(content_type_list)
 
