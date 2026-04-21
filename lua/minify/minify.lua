@@ -1,6 +1,6 @@
 --[[
 Introduction and details :
-Script Version: 1.1
+Script Version: 1.2
 
 Copyright Conor Mcknight
 
@@ -176,11 +176,11 @@ setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1
 }
 ?>
 ]]
-localized.content_cache = {
 
+localized.content_cache = {
 	{
 		".*", --regex match any site / path
-		"text/html", --content-type valid types are text to match all text formats or text/css text/javascript etc
+		"", --empty string matches all "" content-type valid types are text/html or text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
 		60, --ttl for cache or ""
@@ -221,7 +221,7 @@ localized.content_cache = {
 		},
 		"", --1e+6, --Maximum content size to cache in bytes 1e+6 = 1MB content larger than this wont be cached empty string "" to skip
 		"", --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -251,7 +251,7 @@ localized.content_cache = {
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",},  --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -281,7 +281,7 @@ localized.content_cache = {
 		"", --content modified not needed for this format
 		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		"", --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",},  --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -293,7 +293,6 @@ localized.content_cache = {
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
 	},
-
 }
 
 --[[
@@ -792,6 +791,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -886,6 +888,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -962,7 +967,8 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
+						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
@@ -1022,6 +1028,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
@@ -1100,6 +1109,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
