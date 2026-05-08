@@ -27,7 +27,7 @@ Once installed into your `nginx/conf/` folder.
 
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
-```
+```lua
 lua_shared_dict html_cache 10m; #HTML pages cache
 access_by_lua_file conf/lua/minify/minify.lua;
 ```
@@ -36,7 +36,7 @@ access_by_lua_file conf/lua/minify/minify.lua;
 
 This will run for all websites on the nginx server
 
-```
+```lua
 http {
 #nginx config settings etc
 lua_shared_dict html_cache 10m; #HTML pages cache
@@ -47,7 +47,7 @@ access_by_lua_file conf/lua/minify/minify.lua;
 
 This will make it run for this website only
 
-```
+```lua
 server {
 #nginx config settings etc
 lua_shared_dict html_cache 10m; #HTML pages cache
@@ -58,7 +58,7 @@ access_by_lua_file conf/lua/minify/minify.lua;
 
 This will run in this location block only
 
-```
+```lua
 location / {
 #nginx config settings etc
 lua_shared_dict html_cache 10m; #HTML pages cache
@@ -77,7 +77,7 @@ https://www.lua.org/demo.html
 #### Examples :
 
 ##### Basic :
-```
+```lua
 local string = "<style>lol1/* ok lol */lol2</style>"
 local regex = "<style>(.*)%/%*(.*)%*%/(.*)</style>"
 local replace_with = "<style>%1%3</style>"
@@ -86,7 +86,7 @@ print(output)
 ```
 
 ##### Advanced :
-```
+```lua
 local add_to_string = [[added me!]]
 local string = [[<style>lol1/* ok lol */lol2</style>]] .. add_to_string .. [[
 hello world!
