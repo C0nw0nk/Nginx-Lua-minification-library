@@ -197,7 +197,7 @@ localized.content_cache = {
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
@@ -221,7 +221,7 @@ localized.content_cache = {
 		},
 		"", --1e+6, --Maximum content size to cache in bytes 1e+6 = 1MB content larger than this wont be cached empty string "" to skip
 		"", --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -245,13 +245,13 @@ localized.content_cache = {
 		"", --nil or empty string "" to not bypass on cookies
 		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",},  --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -275,13 +275,13 @@ localized.content_cache = {
 		nil, --nil or empty string "" to not bypass on cookies
 		nil, --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		"", --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified",},--removed cookie for safety only include it if you know what you are doing "set-cookie",},  --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
 		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
@@ -310,12 +310,33 @@ local ngx_cookie_time = ngx.cookie_time
 local ngx_time = ngx.time
 local currenttime = ngx_time() --Current time on server
 local expire_time = 8640000 --One day
-set_cookie1 = "name1".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
-set_cookie2 = "name2".."=".."2".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
-set_cookie3 = ""--"logged_in".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
-set_cookies = {set_cookie1,set_cookie2,set_cookie3}
-ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+local set_cookie1 = "name1".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+local set_cookie2 = "name2".."=".."2".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+local set_cookie3 = ""--"logged_in".."=".."1".."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+local set_cookies = {set_cookie1,set_cookie2,set_cookie3}
+localized.ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 ]]
+
+--[[
+Overrides for lua can be used via configuration file nginx.conf in the lua init block
+https://github.com/C0nw0nk/Nginx-Lua-minification-library/wiki/Script-Overrides
+useful for those who do not want to modify the script but want to control settings via their nginx config
+This way for each website or nginx config or vhost virtual host you can use the nginx config files to control this script
+Example: nginx.conf inside the http block
+http {
+init_by_lua '
+localized_global = {} --define global var that script can read
+localized_global.content_cache = {
+--stuff
+}
+';
+}
+]]
+if localized_global ~= nil then
+if localized_global.content_cache ~= nil then
+localized.content_cache = localized_global.content_cache
+end
+end
 
 --I made this function because string find / match can be slow so i can speed it up for basic regex examples / matches
 --And it allows me to add more to the list easier rather than individually for each usage of string find / match
@@ -850,7 +871,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -947,7 +968,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -992,7 +1013,7 @@ local function minification(content_type_list)
 									end
 								end
 							end
-							if content_type_list[i][11] == 1 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
+							if content_type_list[i][11] == 1 or content_type_list[i][11] == 2 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
 								localized.ngx_header["Set-Cookie"] = nil
 							end
 							localized.ngx_header["Content-Length"] = #output_minified
@@ -1071,7 +1092,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
@@ -1152,7 +1173,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
