@@ -187,7 +187,7 @@ localized.content_cache = {
 		--{
 		--	2, --storage server for cache redis = 1 memcached = 2
 		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock"
-		--	11211, --port
+		--	11211, --port memcached 11211 redis 6379
 		--	nil,--1000, --connect_timeout 1 second
 		--	nil,--1000, --send_timeout 1 second
 		--	nil,--1000, --read_timeout 1 second
@@ -820,76 +820,76 @@ local function minification(content_type_list)
 
 				local cached = content_type_list[i][3] or ""
 				if cached ~= "" then
-					if localized.type(cached) == "table" then
-						local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user = nil
-						for x=1,#content_type_list[i][3] do
-							--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
-							if x == 1 then
-								if content_type_list[i][3][x] == 1 then
-									--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
-									if check_resty_redis() then
-										localized.libcached = require "resty.redis"
-										cached = localized.libcached:new()
-									else
-										if content_type_list[i][5] == 1 then
-											localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
-										end
-										return
+					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user = nil
+					for x=1,#content_type_list[i][3] do
+						--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
+						if x == 1 then
+							if content_type_list[i][3][x] == 1 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
+								if check_resty_redis() then
+									localized.libcached = require "resty.redis"
+									cached = localized.libcached:new()
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
 									end
-								end
-								if content_type_list[i][3][x] == 2 then
-									--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
-									if check_resty_memcached() then
-										localized.libcached = require "resty.memcached"
-										cached = localized.libcached:new()
-									else
-										if content_type_list[i][5] == 1 then
-											localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
-										end
-										return
-									end
+									return
 								end
 							end
-							if x == 2 then
-								--ip address or socket
-								libconaddr = content_type_list[i][3][x]
-							end
-							if x == 3 then
-								--port
-								libconport = content_type_list[i][3][x]
-							end
-							if x == 4 then
-								--connect_timeout
-								connect_timeout = content_type_list[i][3][x]
-							end
-							if x == 5 then
-								--send_timeout
-								send_timeout = content_type_list[i][3][x]
-							end
-							if x == 6 then
-								--read_timeout
-								read_timeout = content_type_list[i][3][x]
-							end
-							if x == 7 then
-								--keepalive max_idle_timeout
-								max_idle_timeout = content_type_list[i][3][x]
-							end
-							if x == 8 then
-								--keepalive pool_size
-								pool_size = content_type_list[i][3][x]
-							end
-							if x == 9 then
-								auth_user = content_type_list[i][3][x]
+							if content_type_list[i][3][x] == 2 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
+								if check_resty_memcached() then
+									localized.libcached = require "resty.memcached"
+									cached = localized.libcached:new()
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
 							end
 						end
+						if x == 2 then
+							--ip address or socket
+							libconaddr = content_type_list[i][3][x]
+						end
+						if x == 3 then
+							--port
+							libconport = content_type_list[i][3][x]
+						end
+						if x == 4 then
+							--connect_timeout
+							connect_timeout = content_type_list[i][3][x]
+						end
+						if x == 5 then
+							--send_timeout
+							send_timeout = content_type_list[i][3][x]
+						end
+						if x == 6 then
+							--read_timeout
+							read_timeout = content_type_list[i][3][x]
+						end
+						if x == 7 then
+							--keepalive max_idle_timeout
+							max_idle_timeout = content_type_list[i][3][x]
+						end
+						if x == 8 then
+							--keepalive pool_size
+							pool_size = content_type_list[i][3][x]
+						end
+						if x == 9 then
+							auth_user = content_type_list[i][3][x]
+						end
+					end
 
-						if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
-							cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
-						end
-						if connect_timeout ~= nil and send_timeout == nil and read_timeout == nil then
-							cached:set_timeout(connect_timeout)
-						end
+					if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
+						cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
+					end
+					if connect_timeout ~= nil and send_timeout == nil and read_timeout == nil then
+						cached:set_timeout(connect_timeout)
+					end
 
+					if libconaddr ~= nil and libconport ~= nil then
 						local ok, err = cached:connect(libconaddr, libconport)
 						if not ok then
 							if content_type_list[i][5] == 1 then
@@ -897,27 +897,26 @@ local function minification(content_type_list)
 							end
 							return
 						end
+					end
 
-						if auth_user ~= nil then
-							local ok, err = cached:auth(auth_user)
-							if not ok then
-								if content_type_list[i][5] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
-								end
-								return
+					if auth_user ~= nil then
+						local ok, err = cached:auth(auth_user)
+						if not ok then
+							if content_type_list[i][5] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
 							end
+							return
 						end
+					end
 
-						if max_idle_timeout ~= nil and pool_size ~= nil then
-							local ok, err = cached:set_keepalive(max_idle_timeout, pool_size)
-							if not ok then
-								if content_type_list[i][5] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
-								end
-								return
+					if max_idle_timeout ~= nil and pool_size ~= nil then
+						local ok, err = cached:set_keepalive(max_idle_timeout, pool_size)
+						if not ok then
+							if content_type_list[i][5] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
 							end
+							return
 						end
-
 					end
 				end
 				if cached ~= "" then
