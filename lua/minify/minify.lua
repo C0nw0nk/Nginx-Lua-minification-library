@@ -1,6 +1,6 @@
 --[[
 Introduction and details :
-Script Version: 1.2
+Script Version: 1.3
 
 Copyright Conor Mcknight
 
@@ -63,6 +63,7 @@ access_by_lua_file conf/lua/minify/minify.lua;
 localize all standard Lua and ngx functions I use for better performance.
 ]]
 local localized = {}
+localized.tonumber = tonumber
 localized.tostring = tostring
 localized.next = next
 localized.type = type
@@ -182,7 +183,18 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"", --empty string matches all "" content-type valid types are text/html or text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
-		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
+		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table for advanced options
+		--{
+		--	2, --storage server for cache redis = 1 memcached = 2
+		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock"
+		--	11211, --port
+		--	nil,--1000, --connect_timeout 1 second
+		--	nil,--1000, --send_timeout 1 second
+		--	nil,--1000, --read_timeout 1 second
+		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
+		--	nil,--100, --keepalive pool_size
+		--	nil,--"pass", --auth_user
+		--},
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -784,7 +796,130 @@ local function minification(content_type_list)
 					return localized.cached_restyhttp
 				end
 
+				localized.cached_restyredis = nil
+				local function check_resty_redis()
+					if localized.cached_restyredis ~= nil then
+						return localized.cached_restyredis
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restyredis = pcall(require, "resty.redis") --check if resty redis library exists will be true or false
+					return localized.cached_restyredis
+				end
+
+				localized.cached_restymemcached = nil
+				local function check_resty_memcached()
+					if localized.cached_restymemcached ~= nil then
+						return localized.cached_restymemcached
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restymemcached = pcall(require, "resty.memcached") --check if resty memcached library exists will be true or false
+					return localized.cached_restymemcached
+				end
+
 				local cached = content_type_list[i][3] or ""
+				if cached ~= "" then
+					if localized.type(cached) == "table" then
+						local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user = nil
+						for x=1,#content_type_list[i][3] do
+							--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
+							if x == 1 then
+								if content_type_list[i][3][x] == 1 then
+									--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
+									if check_resty_redis() then
+										localized.libcached = require "resty.redis"
+										cached = localized.libcached:new()
+									else
+										if content_type_list[i][5] == 1 then
+											localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+										end
+										return
+									end
+								end
+								if content_type_list[i][3][x] == 2 then
+									--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
+									if check_resty_memcached() then
+										localized.libcached = require "resty.memcached"
+										cached = localized.libcached:new()
+									else
+										if content_type_list[i][5] == 1 then
+											localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+										end
+										return
+									end
+								end
+							end
+							if x == 2 then
+								--ip address or socket
+								libconaddr = content_type_list[i][3][x]
+							end
+							if x == 3 then
+								--port
+								libconport = content_type_list[i][3][x]
+							end
+							if x == 4 then
+								--connect_timeout
+								connect_timeout = content_type_list[i][3][x]
+							end
+							if x == 5 then
+								--send_timeout
+								send_timeout = content_type_list[i][3][x]
+							end
+							if x == 6 then
+								--read_timeout
+								read_timeout = content_type_list[i][3][x]
+							end
+							if x == 7 then
+								--keepalive max_idle_timeout
+								max_idle_timeout = content_type_list[i][3][x]
+							end
+							if x == 8 then
+								--keepalive pool_size
+								pool_size = content_type_list[i][3][x]
+							end
+							if x == 9 then
+								auth_user = content_type_list[i][3][x]
+							end
+						end
+
+						if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
+							cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
+						end
+						if connect_timeout ~= nil and send_timeout == nil and read_timeout == nil then
+							cached:set_timeout(connect_timeout)
+						end
+
+						local ok, err = cached:connect(libconaddr, libconport)
+						if not ok then
+							if content_type_list[i][5] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+							end
+							return
+						end
+
+						if auth_user ~= nil then
+							local ok, err = cached:auth(auth_user)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
+								end
+								return
+							end
+						end
+
+						if max_idle_timeout ~= nil and pool_size ~= nil then
+							local ok, err = cached:set_keepalive(max_idle_timeout, pool_size)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
+								end
+								return
+							end
+						end
+
+					end
+				end
 				if cached ~= "" then
 					local ttl = content_type_list[i][4] or ""
 					local cookie_string = ""
@@ -809,6 +944,10 @@ local function minification(content_type_list)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
 					local content_type_cache = cached:get("content-type"..key) or nil
+
+					if content_type_cache == localized.ngx.null then
+						content_type_cache = nil
+					end
 
 					if content_type_cache == nil then
 						if #content_type_list[i][6] > 0 then
@@ -1042,7 +1181,7 @@ local function minification(content_type_list)
 							--localized.ngx_status = res_status
 							localized.ngx_status = response_status_match(res_status)
 							localized.ngx_say(output_minified)
-							localized.ngx_exit(response_status_match(res_status))
+							localized.ngx_exit(localized.tonumber(response_status_match(res_status)))
 							--localized.ngx_exit(res_status)
 
 						end
