@@ -186,7 +186,7 @@ localized.content_cache = {
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table for advanced options
 		--{
 		--	2, --storage server for cache redis = 1 memcached = 2
-		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock"
+		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
 		--	11211, --port memcached 11211 redis 6379
 		--	nil,--1000, --connect_timeout 1 second
 		--	nil,--1000, --send_timeout 1 second
@@ -819,6 +819,7 @@ local function minification(content_type_list)
 				end
 
 				local cached = content_type_list[i][3] or ""
+				local resty_redis = 0
 				if cached ~= "" then
 					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user = nil
 					for x=1,#content_type_list[i][3] do
@@ -829,6 +830,7 @@ local function minification(content_type_list)
 								if check_resty_redis() then
 									localized.libcached = require "resty.redis"
 									cached = localized.libcached:new()
+									resty_redis = 1
 								else
 									if content_type_list[i][5] == 1 then
 										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
@@ -889,6 +891,16 @@ local function minification(content_type_list)
 						cached:set_timeout(connect_timeout)
 					end
 
+					if libconaddr ~= nil and libconport == nil then
+						local ok, err = cached:connect(libconaddr)
+						if not ok then
+							if content_type_list[i][5] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+							end
+							return
+						end
+					end
+
 					if libconaddr ~= nil and libconport ~= nil then
 						local ok, err = cached:connect(libconaddr, libconport)
 						if not ok then
@@ -944,11 +956,7 @@ local function minification(content_type_list)
 
 					local content_type_cache = cached:get("content-type"..key) or nil
 
-					if content_type_cache == localized.ngx.null then
-						content_type_cache = nil
-					end
-
-					if content_type_cache == nil then
+					if content_type_cache == nil or content_type_cache == localized.ngx.null then
 						if #content_type_list[i][6] > 0 then
 
 							if content_type_list[i][13] and check_resty_http() then
@@ -1015,15 +1023,27 @@ local function minification(content_type_list)
 													if content_type_list[i][10] == 1 then
 														localized.ngx_header["X-Cache-Status"] = "UPDATING"
 													end
-													cached:set(key, output_minified, ttl)
-													cached:set("s"..key, res.status, ttl)
+													if resty_redis == 1 then
+														cached:set(key, output_minified)
+														cached:expire(key, ttl)
+														cached:set("s"..key, res.status)
+														cached:expire("s"..key, ttl)
+													else
+														cached:set(key, output_minified, ttl)
+														cached:set("s"..key, res.status, ttl)
+													end
 													if res.headers ~= nil and localized.type(res.headers) == "table" then
 														for headerName, header in localized.next, res.headers do
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
-																		cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																		if resty_redis == 1 then
+																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header)
+																			cached:expire(localized.string_lower(localized.tostring(header_original))..key, ttl)
+																		else
+																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																		end
 																	end
 																end
 															end
@@ -1112,15 +1132,27 @@ local function minification(content_type_list)
 													if content_type_list[i][10] == 1 then
 														localized.ngx_header["X-Cache-Status"] = "UPDATING"
 													end
-													cached:set(key, output_minified, ttl)
-													cached:set("s"..key, res.status, ttl)
+													if resty_redis == 1 then
+														cached:set(key, output_minified)
+														cached:expire(key, ttl)
+														cached:set("s"..key, res.status)
+														cached:expire("s"..key, ttl)
+													else
+														cached:set(key, output_minified, ttl)
+														cached:set("s"..key, res.status, ttl)
+													end
 													if res.header ~= nil and localized.type(res.header) == "table" then
 														for headerName, header in localized.next, res.header do
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
-																		cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																		if resty_redis == 1 then
+																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header)
+																			cached:expire(localized.string_lower(localized.tostring(header_original))..key, ttl)
+																		else
+																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																		end
 																	end
 																end
 															end
@@ -1167,7 +1199,7 @@ local function minification(content_type_list)
 								for a=1, #content_type_list[i][17] do
 									local header_name = localized.string_lower(content_type_list[i][17][a])
 									local check_header = cached:get(header_name..key) or nil
-									if check_header ~= nil then
+									if check_header ~= nil or check_header ~= localized.ngx.null then
 										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header )
 										localized.ngx_header[header_name] = check_header
 									end
