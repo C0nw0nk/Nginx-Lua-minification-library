@@ -1199,7 +1199,7 @@ local function minification(content_type_list)
 								for a=1, #content_type_list[i][17] do
 									local header_name = localized.string_lower(content_type_list[i][17][a])
 									local check_header = cached:get(header_name..key) or nil
-									if check_header ~= nil or check_header ~= localized.ngx.null then
+									if check_header ~= nil and check_header ~= localized.ngx.null then
 										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header )
 										localized.ngx_header[header_name] = check_header
 									end
