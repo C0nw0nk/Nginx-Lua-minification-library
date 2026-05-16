@@ -185,15 +185,21 @@ localized.content_cache = {
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table for advanced options
 		--{
-		--	2, --storage server for cache redis = 1 memcached = 2
-		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
-		--	11211, --port memcached 11211 redis 6379
+		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
+		--	"192.168.8.138", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
+		--	16379, --port memcached 11211 redis 6379
 		--	nil,--1000, --connect_timeout 1 second
 		--	nil,--1000, --send_timeout 1 second
 		--	nil,--1000, --read_timeout 1 second
 		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
 		--	nil,--100, --keepalive pool_size
-		--	nil,--"pass", --auth_user
+		--	nil,--"user", --auth_user
+		--	nil,--"pass", --auth_pass
+		--	{--11th table fallback incase server offline or goes down
+		--		{2,"192.168.8.138",11211,}, --memcache
+		--		{3, localized_global.lrucache,} --lru cache
+		--		{4, localized.ngx.shared.html_cache,} --shared.dict
+		--	},
 		--},
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
@@ -818,10 +824,22 @@ local function minification(content_type_list)
 					return localized.cached_restymemcached
 				end
 
+				localized.cached_restylrucache = nil
+				local function check_resty_lrucache()
+					if localized.cached_restylrucache ~= nil then
+						return localized.cached_restylrucache
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restylrucache = pcall(require, "resty.lrucache") --check if resty lrucache library exists will be true or false
+					return localized.cached_restylrucache
+				end
+
 				local cached = content_type_list[i][3] or ""
 				local resty_redis = 0
+				local master_break = false
 				if cached ~= "" then
-					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user = nil
+					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers = nil
 					for x=1,#content_type_list[i][3] do
 						--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
 						if x == 1 then
@@ -849,6 +867,30 @@ local function minification(content_type_list)
 									end
 									return
 								end
+							end
+							if content_type_list[i][3][x] == 3 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
+								if check_resty_lrucache() and content_type_list[i][3][2] ~= nil then
+									--localized.libcached = require "resty.lrucache"
+									--cached = localized_global.lrucache
+									cached = content_type_list[i][3][2]
+									--[[
+									init_by_lua_block {
+									localized_global = {} --define global var that script can read
+									local libcached = require "resty.lrucache"
+									localized_global.lrucache = libcached.new(100)
+									}
+									]]
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if content_type_list[i][3][x] == 4 then
+								cached = content_type_list[i][3][2]
+								break
 							end
 						end
 						if x == 2 then
@@ -882,54 +924,180 @@ local function minification(content_type_list)
 						if x == 9 then
 							auth_user = content_type_list[i][3][x]
 						end
-					end
-
-					if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
-						cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
-					end
-					if connect_timeout ~= nil and send_timeout == nil and read_timeout == nil then
-						cached:set_timeout(connect_timeout)
-					end
-
-					if libconaddr ~= nil and libconport == nil then
-						local ok, err = cached:connect(libconaddr)
-						if not ok then
-							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
-							end
-							return
+						if x == 10 then
+							auth_pass = content_type_list[i][3][x]
+						end
+						if x == 11 then
+							fallback_servers = content_type_list[i][3][x]
 						end
 					end
 
-					if libconaddr ~= nil and libconport ~= nil then
-						local ok, err = cached:connect(libconaddr, libconport)
-						if not ok then
-							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+					local function connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass)
+						if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
+							cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
+						end
+						if connect_timeout ~= nil and send_timeout == nil and read_timeout == nil then
+							cached:set_timeout(connect_timeout)
+						end
+
+						if libconaddr ~= nil and libconport == nil then
+							local ok, err = cached:connect(libconaddr)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+								end
+								return false
 							end
-							return
+						end
+
+						if libconaddr ~= nil and libconport ~= nil then
+							local ok, err = cached:connect(libconaddr, libconport)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+								end
+								return false
+							end
+						end
+
+						if auth_user ~= nil and auth_pass ~= nil then
+							local ok, err = cached:auth(auth_user, auth_pass)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
+								end
+								return false
+							end
+						end
+
+						if auth_user == nil and auth_pass ~= nil then
+							local ok, err = cached:auth(auth_pass)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
+								end
+								return false
+							end
+						end
+
+						if max_idle_timeout ~= nil and pool_size ~= nil then
+							local ok, err = cached:set_keepalive(max_idle_timeout, pool_size)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
+								end
+								return false
+							end
+						end
+						return true --all checks passed
+					end
+					--connect_server()
+
+					if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == false and fallback_servers ~= nil then
+						for y=1,#fallback_servers do
+							resty_redis = 0 --reset to 0
+							if master_break then break end
+							for z=1,#fallback_servers[y] do
+								if z == 1 then
+									if fallback_servers[y][z] == 1 then
+										--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
+										if check_resty_redis() then
+											localized.libcached = require "resty.redis"
+											cached = localized.libcached:new()
+											resty_redis = 1
+										else
+											if content_type_list[i][5] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+											end
+											return
+										end
+									end
+									if fallback_servers[y][z] == 2 then
+										--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
+										if check_resty_memcached() then
+											localized.libcached = require "resty.memcached"
+											cached = localized.libcached:new()
+										else
+											if content_type_list[i][5] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+											end
+											return
+										end
+									end
+									if fallback_servers[y][z] == 3 then
+										--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
+										if check_resty_lrucache() and fallback_servers[y][2] ~= nil then
+											--localized.libcached = require "resty.lrucache"
+											--cached = localized_global.lrucache
+											cached = fallback_servers[y][2]
+											--[[
+											init_by_lua_block {
+											localized_global = {} --define global var that script can read
+											local libcached = require "resty.lrucache"
+											localized_global.lrucache = libcached.new(100)
+											}
+											]]
+											if cached then
+												master_break = true
+												break
+											end
+										else
+											if content_type_list[i][5] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+											end
+											return
+										end
+									end
+									if fallback_servers[y][z] == 4 then
+										cached = fallback_servers[y][2]
+										if cached then
+											master_break = true
+											break
+										end
+									end
+								end
+								if z == 2 then
+									--ip address or socket
+									libconaddr = fallback_servers[y][z]
+								end
+								if z == 3 then
+									--port
+									libconport = fallback_servers[y][z]
+								end
+								if z == 4 then
+									--connect_timeout
+									connect_timeout = fallback_servers[y][z]
+								end
+								if z == 5 then
+									--send_timeout
+									send_timeout = fallback_servers[y][z]
+								end
+								if z == 6 then
+									--read_timeout
+									read_timeout = fallback_servers[y][z]
+								end
+								if z == 7 then
+									--keepalive max_idle_timeout
+									max_idle_timeout = fallback_servers[y][z]
+								end
+								if z == 8 then
+									--keepalive pool_size
+									pool_size = fallback_servers[y][z]
+								end
+								if z == 9 then
+									auth_user = fallback_servers[y][z]
+								end
+								if z == 10 then
+									auth_pass = fallback_servers[y][z]
+								end
+								if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == true then
+									master_break = true
+									break
+								end
+							end
 						end
 					end
 
-					if auth_user ~= nil then
-						local ok, err = cached:auth(auth_user)
-						if not ok then
-							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to authenticate: ", err)
-							end
-							return
-						end
-					end
-
-					if max_idle_timeout ~= nil and pool_size ~= nil then
-						local ok, err = cached:set_keepalive(max_idle_timeout, pool_size)
-						if not ok then
-							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
-							end
-							return
-						end
-					end
 				end
 				if cached ~= "" then
 					local ttl = content_type_list[i][4] or ""
