@@ -197,8 +197,8 @@ localized.content_cache = {
 		--	nil,--"pass", --auth_pass
 		--	{--11th table fallback incase server offline or goes down
 		--		{2,"127.0.0.2",11211,}, --memcache
-		--		{3, localized_global.lrucache,} --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
-		--		{4, localized.ngx.shared.html_cache,} --shared.dict
+		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
+		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
 		--	},
 		--},
 		60, --ttl for cache or ""
@@ -287,7 +287,13 @@ localized.content_cache = {
 			--["host"] = "www.google.com", --override this header to request being sent to backend
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
-		nil, --cache only when cookie match found use nil or empty string "" to ignore
+		nil,--{ --cache only when cookie match found use nil or empty string "" to ignore
+			--{
+			--	"logged_in", --cookie name regex ".*" for any cookie
+			--	"1", --cookie value ".*" for any value
+			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
+			--},
+		--},
 	},
 	{
 		".*", --regex match any site / path
@@ -318,7 +324,13 @@ localized.content_cache = {
 			--["host"] = "www.google.com", --override this header to request being sent to backend
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
-		nil, --cache only when cookie match found use nil or empty string "" to ignore
+		nil,--{ --cache only when cookie match found use nil or empty string "" to ignore
+			--{
+			--	"logged_in", --cookie name regex ".*" for any cookie
+			--	"1", --cookie value ".*" for any value
+			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
+			--},
+		--},
 	},
 }
 
@@ -850,7 +862,7 @@ local function minification(content_type_list)
 				local cached = content_type_list[i][3] or ""
 				local resty_redis = 0
 				local master_break = false
-				if cached ~= "" then
+				if cached ~= "" and localized.type(cached) == "table" then
 					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers = nil
 					for x=1,#content_type_list[i][3] do
 						--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
