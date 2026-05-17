@@ -262,7 +262,24 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
-		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache
+		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache or lua table for advanced options
+		--{
+		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
+		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
+		--	6379, --port memcached 11211 redis 6379
+		--	nil,--1000, --connect_timeout 1 second
+		--	nil,--1000, --send_timeout 1 second
+		--	nil,--1000, --read_timeout 1 second
+		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
+		--	nil,--100, --keepalive pool_size
+		--	nil,--"user", --auth_user
+		--	nil,--"pass", --auth_pass
+		--	{--11th table fallback incase server offline or goes down
+		--		{2,"127.0.0.2",11211,}, --memcache
+		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
+		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
+		--	},
+		--},
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -299,7 +316,24 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"image", --content-type for image/png image/jpeg image/x-icon etc
 		--lua_shared_dict image_cache 300m; #image cache
-		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache
+		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache or lua table for advanced options
+		--{
+		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
+		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
+		--	6379, --port memcached 11211 redis 6379
+		--	nil,--1000, --connect_timeout 1 second
+		--	nil,--1000, --send_timeout 1 second
+		--	nil,--1000, --read_timeout 1 second
+		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
+		--	nil,--100, --keepalive pool_size
+		--	nil,--"user", --auth_user
+		--	nil,--"pass", --auth_pass
+		--	{--11th table fallback incase server offline or goes down
+		--		{2,"127.0.0.2",11211,}, --memcache
+		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
+		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
+		--	},
+		--},
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
