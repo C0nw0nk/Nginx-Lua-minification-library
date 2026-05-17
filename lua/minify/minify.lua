@@ -186,8 +186,8 @@ localized.content_cache = {
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table for advanced options
 		--{
 		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
-		--	"192.168.8.138", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
-		--	16379, --port memcached 11211 redis 6379
+		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
+		--	6379, --port memcached 11211 redis 6379
 		--	nil,--1000, --connect_timeout 1 second
 		--	nil,--1000, --send_timeout 1 second
 		--	nil,--1000, --read_timeout 1 second
@@ -196,8 +196,8 @@ localized.content_cache = {
 		--	nil,--"user", --auth_user
 		--	nil,--"pass", --auth_pass
 		--	{--11th table fallback incase server offline or goes down
-		--		{2,"192.168.8.138",11211,}, --memcache
-		--		{3, localized_global.lrucache,} --lru cache
+		--		{2,"127.0.0.2",11211,}, --memcache
+		--		{3, localized_global.lrucache,} --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
 		--		{4, localized.ngx.shared.html_cache,} --shared.dict
 		--	},
 		--},
@@ -323,6 +323,13 @@ localized.content_cache = {
 }
 
 --[[
+a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
+If you encounter requests hanging or subrequests issues set this to false the cause is proxy_max_temp_file_size 0; you either increase your buffer size or set this to false
+Example here : https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Requests-Hanging
+]]
+localized.content_type_fix = true --true or false
+
+--[[
 
 DO NOT TOUCH ANYTHING BELOW THIS POINT UNLESS YOU KNOW WHAT YOU ARE DOING.
 
@@ -362,6 +369,9 @@ localized_global.content_cache = {
 if localized_global ~= nil then
 if localized_global.content_cache ~= nil then
 localized.content_cache = localized_global.content_cache
+end
+if localized_global.content_type_fix ~= nil then
+localized.content_type_fix = localized_global.content_type_fix
 end
 end
 
@@ -473,7 +483,9 @@ end
 
 if localized.content_cache == nil or #localized.content_cache == 0 then
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type before " .. get_resp_content_type() )
-	get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+	if localized.content_type_fix then
+		get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+	end
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type after " .. get_resp_content_type() )
 end
 
@@ -760,7 +772,7 @@ local function minification(content_type_list)
 				For debugging tests i have checked these and they work fine i am leaving this here for future refrence
 				curl post request test - curl.exe "http://localhost/" -H "User-Agent: testagent" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" --request POST --data '{"username":"xyz","password":"xyz"}' -H "Content-Type: application/json"
 				curl post no data test - curl.exe "http://localhost/" -H "User-Agent: testagent" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" --request POST -H "Content-Type: application/json"
-				
+
 				client_body_in_file_only on; #nginx config to test / debug on post data being stored in file incase of large post data sizes the nginx memory buffer was not big enough i turned this on to check this works as it should.
 				]]
 				localized.ngx_req_read_body()
