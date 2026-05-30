@@ -397,6 +397,9 @@ localized_global.content_cache = {
 }
 ]]
 if localized_global ~= nil then
+if localized_global.remote_servers_table ~= nil then
+localized.remote_servers_table = localized_global.remote_servers_table
+end
 if localized_global.content_cache ~= nil then
 localized.content_cache = localized_global.content_cache
 end
